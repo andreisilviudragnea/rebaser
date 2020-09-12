@@ -166,6 +166,8 @@ fun main() {
         val call = git.rebase().setUpstream(it.base.ref).call()
         if (call.status == RebaseResult.Status.OK) {
             git.push().setForce(true).call()
+        } else {
+            println("Rebase error ${call.status}")
         }
         git.checkout().setName(currentBranch).call()
     }
