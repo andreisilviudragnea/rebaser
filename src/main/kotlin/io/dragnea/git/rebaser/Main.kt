@@ -45,7 +45,8 @@ fun Git.getRemoteName(): String {
 
     val input = uris[0].path
 
-    val matchResult = regexText.toRegex().matchEntire(input) ?: throw IllegalStateException("\"$input\" does not match \"$regexText\"")
+    val matchResult = regexText.toRegex().matchEntire(input)
+        ?: throw IllegalStateException("\"$input\" does not match \"$regexText\"")
 
     return matchResult.groupValues[1]
 }
@@ -189,8 +190,7 @@ fun main() {
             }
 
             println("Successfully aborted.")
-        }
-        finally {
+        } finally {
             git.checkout().setName(currentBranch).call()
         }
     }
