@@ -204,7 +204,7 @@ private fun GHPullRequest.rebasePr(
                 .flatten()
 
             if (pushResult.any { it.status != RemoteRefUpdate.Status.OK }) {
-                println("Push to remote failed for \"$title\": $pushResult")
+                println("Push to remote failed for \"$title\": $pushResult. Resetting...")
                 git.reset().setMode(ResetCommand.ResetType.HARD).setRef("origin/$headRef").call()
                 return
             }
