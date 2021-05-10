@@ -174,6 +174,11 @@ fun main() {
             val call = git.rebase().setUpstream(baseRef).call()
 
             if (call.status.isSuccessful) {
+                if (git.isSafeBranch(headRef)) {
+                    println("No changes for \"${it.title}\". Not pushing to remote.")
+                    return@forEach
+                }
+
                 println("Successfully rebased \"${it.title}\". Pushing changes to remote...")
 
                 git
