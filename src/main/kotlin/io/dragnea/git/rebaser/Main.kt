@@ -115,6 +115,8 @@ fun main() {
 
     val allPrsToRebase = allPrs.filter { git.isSafePr(it) }
 
+    println()
+
     println("Going to rebase ${allPrsToRebase.size} safe pull requests:")
 
     allPrsToRebase.forEach {
@@ -127,7 +129,7 @@ fun main() {
         var changesPropagated = false
 
         allPrsToRebase.forEach {
-            changesPropagated = changesPropagated || it.rebase(git)
+            changesPropagated = it.rebase(git) || changesPropagated
             println()
         }
     } while (changesPropagated)
