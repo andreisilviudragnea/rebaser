@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
     kotlin("jvm") version "1.5.0"
     id("org.jlleitschuh.gradle.ktlint") version "10.0.0"
@@ -11,11 +13,20 @@ repositories {
 }
 
 tasks {
-    compileKotlin {
+    withType<KotlinCompile> {
         kotlinOptions.jvmTarget = "16"
     }
-    compileTestKotlin {
-        kotlinOptions.jvmTarget = "16"
+    jar {
+        manifest {
+            attributes("Main-Class" to "io.dragnea.git.rebaser.MainKt")
+        }
+
+        from(configurations.compileClasspath.map { config -> config.map { if (it.isDirectory) it else zipTree(it) } })
+
+        duplicatesStrategy = DuplicatesStrategy.WARN
+
+        exclude("META-INF/*.RSA")
+        exclude("META-INF/*.SF")
     }
 }
 
