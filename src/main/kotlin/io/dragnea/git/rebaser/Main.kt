@@ -106,8 +106,12 @@ fun main() {
 
     val myself = github.myself
 
-    val allPrs = myself
-        .getRepository(git.getRemoteName())
+    val remoteName = git.getRemoteName()
+
+    val repository = myself.getRepository(remoteName)
+        ?: throw IllegalArgumentException("Repository $remoteName not found in ${github.apiUrl}")
+
+    val allPrs = repository
         .getPullRequests(GHIssueState.OPEN)
         .filter { it.user == myself }
 
