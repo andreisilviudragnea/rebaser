@@ -156,6 +156,8 @@ fun main() {
 
     val allPrsToRebase = git.computeAllPrsToRebase(allPrs)
 
+    println()
+
     println("Going to rebase ${allPrsToRebase.size} pull requests in this order:")
 
     allPrsToRebase.forEach {
