@@ -106,33 +106,16 @@ fun main() {
 
     val myself = github.myself
 
-    val gitRepository = git.repository
+    val allPrs = myself
+        .getRepository(git.getRemoteName())
+        .getPullRequests(GHIssueState.OPEN)
+        .filter { it.user == myself }
 
-    val githubRepository = myself.getRepository(git.getRemoteName())
-
-    val allPrs = githubRepository.getPullRequests(GHIssueState.OPEN).filter { it.user == myself }
-
-    allPrs.forEach {
-        val headRef = it.head.ref
-        val baseRef = it.base.ref
-
-        println("\"${it.title}\" $baseRef <- $headRef")
-
-        val headCommit = gitRepository.findRef(headRef).objectId
-        val baseCommit = gitRepository.findRef(baseRef).objectId
-
-        val numberOfCommitsAhead = git.log().addRange(baseCommit, headCommit).call().toList().size
-        val numberOfCommitsBehind = git.log().addRange(headCommit, baseCommit).call().toList().size
-
-        println("\"$headRef\" is $numberOfCommitsAhead commits ahead, $numberOfCommitsBehind commits behind \"$baseRef\"")
-        println()
-    }
+    allPrs.forEach { it.describe(git) }
 
     val allPrsToRebase = allPrs.filter { git.isSafePr(it) }
 
-    println()
-
-    println("Going to rebase ${allPrsToRebase.size} pull requests in this order:")
+    println("Going to rebase ${allPrsToRebase.size} safe pull requests:")
 
     allPrsToRebase.forEach {
         println("\"${it.title}\" ${it.base.ref} <- ${it.head.ref}")
@@ -144,13 +127,29 @@ fun main() {
         var changesPropagated = false
 
         allPrsToRebase.forEach {
-            changesPropagated = changesPropagated || it.rebasePr(git)
+            changesPropagated = changesPropagated || it.rebase(git)
             println()
         }
     } while (changesPropagated)
 }
 
-private fun GHPullRequest.rebasePr(git: Git): Boolean {
+private fun GHPullRequest.describe(git: Git) {
+    val headRef = head.ref
+    val baseRef = base.ref
+
+    println("\"$title\" $baseRef <- $headRef")
+
+    val headCommit = git.repository.findRef(headRef).objectId
+    val baseCommit = git.repository.findRef(baseRef).objectId
+
+    val numberOfCommitsAhead = git.log().addRange(baseCommit, headCommit).call().toList().size
+    val numberOfCommitsBehind = git.log().addRange(headCommit, baseCommit).call().toList().size
+
+    println("\"$headRef\" is $numberOfCommitsAhead commits ahead, $numberOfCommitsBehind commits behind \"$baseRef\"")
+    println()
+}
+
+private fun GHPullRequest.rebase(git: Git): Boolean {
     val headRef = head.ref
     val baseRef = base.ref
     println("Rebasing \"$title\" $baseRef <- $headRef...")
