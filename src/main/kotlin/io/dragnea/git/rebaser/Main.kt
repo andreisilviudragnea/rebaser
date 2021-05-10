@@ -5,6 +5,7 @@ import org.eclipse.jgit.api.RebaseCommand
 import org.eclipse.jgit.api.RebaseResult
 import org.eclipse.jgit.errors.RepositoryNotFoundException
 import org.eclipse.jgit.transport.RefLeaseSpec
+import org.eclipse.jgit.transport.RemoteRefUpdate
 import org.kohsuke.github.GHIssueState
 import org.kohsuke.github.GHPullRequest
 import org.kohsuke.github.GitHubBuilder
@@ -194,26 +195,37 @@ private fun GHPullRequest.rebasePr(
 
             println("Successfully rebased \"$title\". Pushing changes to remote...")
 
-            val toList = git
+            val pushResult = git
                 .push()
                 .setRefLeaseSpecs(RefLeaseSpec("refs/heads/$headRef", "refs/origin/$headRef"))
                 .call()
-                .toList()
+                .map { it.remoteUpdates }
+                .flatten()
 
-            println("Successfully pushed changes to remote for \"$title\": ${toList.map { it.remoteUpdates }}")
+            if (pushResult.any { it.status != RemoteRefUpdate.Status.OK }) {
+                println("Push to remote failed for \"$title\": $pushResult")
+                abortRebase(git)
+                return
+            }
 
+            println("Successfully pushed changes to remote for \"$title\"")
             return
         }
 
-        println("Rebase error ${call.status} for \"$title\". Aborting...")
-
-        val abortResult = git.rebase().setOperation(RebaseCommand.Operation.ABORT).call()
-
-        abortResult.status == RebaseResult.Status.ABORTED ||
-                throw IllegalStateException("Aborting rebase failed with status ${abortResult.status}")
-
-        println("Successfully aborted \"$title\".")
+        println("Rebase error ${call.status} for \"$title\".")
+        abortRebase(git)
     } finally {
         git.checkout().setName(currentBranch).call()
     }
+}
+
+private fun GHPullRequest.abortRebase(git: Git) {
+    println("Aborting \"$title\"...")
+
+    val abortResult = git.rebase().setOperation(RebaseCommand.Operation.ABORT).call()
+
+    abortResult.status == RebaseResult.Status.ABORTED ||
+            throw IllegalStateException("Aborting rebase failed with status ${abortResult.status}")
+
+    println("Successfully aborted \"$title\".")
 }
