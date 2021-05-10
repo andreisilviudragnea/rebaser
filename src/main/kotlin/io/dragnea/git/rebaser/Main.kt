@@ -190,7 +190,7 @@ fun main() {
 
             val abortResult = git.rebase().setOperation(RebaseCommand.Operation.ABORT).call()
 
-            abortResult.status == RebaseResult.Status.ABORTED &&
+            abortResult.status == RebaseResult.Status.ABORTED ||
                     throw IllegalStateException("Aborting rebase failed with status ${abortResult.status}")
 
             println("Successfully aborted \"${it.title}\".")
