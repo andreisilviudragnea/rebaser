@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") version "1.4.31"
+    kotlin("jvm") version "1.5.0"
     id("org.jlleitschuh.gradle.ktlint") version "10.0.0"
 }
 
@@ -12,16 +12,16 @@ repositories {
 
 tasks {
     compileKotlin {
-        kotlinOptions.jvmTarget = "1.8"
+        kotlinOptions.jvmTarget = "16"
     }
     compileTestKotlin {
-        kotlinOptions.jvmTarget = "1.8"
+        kotlinOptions.jvmTarget = "16"
     }
 }
 
 dependencies {
     implementation(kotlin("stdlib"))
-    implementation("org.eclipse.jgit:org.eclipse.jgit:5.10.0.202012080955-r")
-    implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.jsch:5.10.0.202012080955-r")
-    implementation("org.kohsuke:github-api:1.122")
+    implementation("org.eclipse.jgit:org.eclipse.jgit:5.11.0.202103091610-r")
+    implementation("org.eclipse.jgit:org.eclipse.jgit.ssh.jsch:5.11.0.202103091610-r")
+    implementation("org.kohsuke:github-api:1.128")
 }
