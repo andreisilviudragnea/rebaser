@@ -7,9 +7,8 @@ import org.eclipse.jgit.errors.RepositoryNotFoundException
 import org.eclipse.jgit.transport.RefLeaseSpec
 import org.kohsuke.github.GHIssueState
 import org.kohsuke.github.GHPullRequest
-import org.kohsuke.github.GitHub
+import org.kohsuke.github.GitHubBuilder
 import java.nio.file.Path
-import kotlin.IllegalStateException
 
 fun getRepository(): Git {
     var toAbsolutePath = Path.of("").toAbsolutePath()
@@ -129,7 +128,7 @@ fun main() {
 
     git.fetch().call()
 
-    val github = GitHub.connect()
+    val github = GitHubBuilder.fromPropertyFile().build()
 
     val myself = github.myself
 
