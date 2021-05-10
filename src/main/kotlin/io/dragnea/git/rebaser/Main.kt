@@ -174,26 +174,26 @@ fun main() {
             val call = git.rebase().setUpstream(baseRef).call()
 
             if (call.status.isSuccessful) {
-                println("Successfully rebased. Pushing changes to remote...")
+                println("Successfully rebased \"${it.title}\". Pushing changes to remote...")
 
                 git
                     .push()
                     .setRefLeaseSpecs(RefLeaseSpec("refs/heads/$headRef", "refs/origin/$headRef"))
                     .call()
 
-                println("Successfully pushed changes to remote.")
+                println("Successfully pushed changes to remote for \"${it.title}\".")
 
                 return@forEach
             }
 
-            println("Rebase error ${call.status}. Aborting...")
+            println("Rebase error ${call.status} for \"${it.title}\". Aborting...")
 
             val abortResult = git.rebase().setOperation(RebaseCommand.Operation.ABORT).call()
 
             abortResult.status == RebaseResult.Status.ABORTED &&
                     throw IllegalStateException("Aborting rebase failed with status ${abortResult.status}")
 
-            println("Successfully aborted.")
+            println("Successfully aborted \"${it.title}\".")
         } finally {
             git.checkout().setName(currentBranch).call()
         }
