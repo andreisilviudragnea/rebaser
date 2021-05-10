@@ -3,6 +3,7 @@ package io.dragnea.git.rebaser
 import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.api.RebaseCommand
 import org.eclipse.jgit.api.RebaseResult
+import org.eclipse.jgit.api.ResetCommand
 import org.eclipse.jgit.errors.RepositoryNotFoundException
 import org.eclipse.jgit.transport.RefLeaseSpec
 import org.eclipse.jgit.transport.RemoteRefUpdate
@@ -204,7 +205,7 @@ private fun GHPullRequest.rebasePr(
 
             if (pushResult.any { it.status != RemoteRefUpdate.Status.OK }) {
                 println("Push to remote failed for \"$title\": $pushResult")
-                abortRebase(git)
+                git.reset().setMode(ResetCommand.ResetType.HARD).setRef("origin/$headRef").call()
                 return
             }
 
