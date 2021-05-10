@@ -151,6 +151,7 @@ fun main() {
         val numberOfCommitsBehind = git.log().addRange(headCommit, baseCommit).call().toList().size
 
         println("\"$headRef\" is $numberOfCommitsAhead commits ahead, $numberOfCommitsBehind commits behind \"$baseRef\"")
+        println()
     }
 
     val allPrsToRebase = git.computeAllPrsToRebase(allPrs)
@@ -161,49 +162,56 @@ fun main() {
         println("\"${it.title}\" ${it.base.ref} <- ${it.head.ref}")
     }
 
+    println()
+
     allPrsToRebase.forEach {
-        val headRef = it.head.ref
-        val baseRef = it.base.ref
-        println("Rebasing \"${it.title}\" $baseRef <- $headRef...")
+        it.rebasePr(git)
+        println()
+    }
+}
 
-        val currentBranch = gitRepository.branch
+private fun GHPullRequest.rebasePr(
+    git: Git
+) {
+    val headRef = head.ref
+    val baseRef = base.ref
+    println("Rebasing \"$title\" $baseRef <- $headRef...")
 
-        try {
-            git.checkout().setName(headRef).call()
+    val currentBranch = git.repository.branch
 
-            val call = git.rebase().setUpstream(baseRef).call()
+    try {
+        git.checkout().setName(headRef).call()
 
-            if (call.status.isSuccessful) {
-                if (git.isSafeBranch(headRef)) {
-                    println("No changes for \"${it.title}\". Not pushing to remote.")
-                    return@forEach
-                }
+        val call = git.rebase().setUpstream(baseRef).call()
 
-                println("Successfully rebased \"${it.title}\". Pushing changes to remote...")
-
-                val toList = git
-                    .push()
-                    .setRefLeaseSpecs(RefLeaseSpec("refs/heads/$headRef", "refs/origin/$headRef"))
-                    .call()
-                    .toList()
-
-                println("Successfully pushed changes to remote for \"${it.title}\": ${toList.map { it.remoteUpdates }}")
-
-                return@forEach
+        if (call.status.isSuccessful) {
+            if (git.isSafeBranch(headRef)) {
+                println("No changes for \"$title\". Not pushing to remote.")
+                return
             }
 
-            println("Rebase error ${call.status} for \"${it.title}\". Aborting...")
+            println("Successfully rebased \"$title\". Pushing changes to remote...")
 
-            val abortResult = git.rebase().setOperation(RebaseCommand.Operation.ABORT).call()
+            val toList = git
+                .push()
+                .setRefLeaseSpecs(RefLeaseSpec("refs/heads/$headRef", "refs/origin/$headRef"))
+                .call()
+                .toList()
 
-            abortResult.status == RebaseResult.Status.ABORTED ||
-                    throw IllegalStateException("Aborting rebase failed with status ${abortResult.status}")
+            println("Successfully pushed changes to remote for \"$title\": ${toList.map { it.remoteUpdates }}")
 
-            println("Successfully aborted \"${it.title}\".")
-        } finally {
-            git.checkout().setName(currentBranch).call()
+            return
         }
 
-        println()
+        println("Rebase error ${call.status} for \"$title\". Aborting...")
+
+        val abortResult = git.rebase().setOperation(RebaseCommand.Operation.ABORT).call()
+
+        abortResult.status == RebaseResult.Status.ABORTED ||
+                throw IllegalStateException("Aborting rebase failed with status ${abortResult.status}")
+
+        println("Successfully aborted \"$title\".")
+    } finally {
+        git.checkout().setName(currentBranch).call()
     }
 }
