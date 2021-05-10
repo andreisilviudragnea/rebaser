@@ -25,7 +25,7 @@ fun getRepository(): Git {
     }
 }
 
-fun Git.getRemoteName(): String {
+fun Git.getSshUrl(): String {
     val remotes = remoteList().call()
 
     remotes.isNotEmpty() || throw IllegalStateException("Repository does not have any remote")
@@ -44,14 +44,7 @@ fun Git.getRemoteName(): String {
         println("origin remote has more than one URI. Choosing the first one...")
     }
 
-    val regexText = "\\S+/(\\S+)\\.git"
-
-    val input = uris[0].path
-
-    val matchResult = regexText.toRegex().matchEntire(input)
-        ?: throw IllegalStateException("\"$input\" does not match \"$regexText\"")
-
-    return matchResult.groupValues[1]
+    return uris[0].path
 }
 
 fun Git.isSafePr(pr: GHPullRequest): Boolean {
@@ -106,10 +99,13 @@ fun main() {
 
     val myself = github.myself
 
-    val remoteName = git.getRemoteName()
+    val sshUrl = git.getSshUrl()
 
-    val repository = myself.getRepository(remoteName)
-        ?: throw IllegalArgumentException("Repository \"$remoteName\" not found in ${github.apiUrl}")
+    val repository = myself
+        .allRepositories
+        .values
+        .find { it.sshUrl == sshUrl }
+        ?: throw IllegalArgumentException("Repository \"$sshUrl\" not found in ${github.apiUrl}")
 
     println("Found repository \"${repository.fullName}\" in ${github.apiUrl}")
 
