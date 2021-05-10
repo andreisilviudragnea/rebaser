@@ -181,12 +181,13 @@ fun main() {
 
                 println("Successfully rebased \"${it.title}\". Pushing changes to remote...")
 
-                git
+                val toList = git
                     .push()
                     .setRefLeaseSpecs(RefLeaseSpec("refs/heads/$headRef", "refs/origin/$headRef"))
                     .call()
+                    .toList()
 
-                println("Successfully pushed changes to remote for \"${it.title}\".")
+                println("Successfully pushed changes to remote for \"${it.title}\": ${toList.map { it.remoteUpdates }}")
 
                 return@forEach
             }
