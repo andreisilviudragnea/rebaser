@@ -4,6 +4,7 @@ import org.eclipse.jgit.api.Git
 import org.eclipse.jgit.api.RebaseCommand
 import org.eclipse.jgit.api.RebaseResult
 import org.eclipse.jgit.errors.RepositoryNotFoundException
+import org.eclipse.jgit.transport.RefLeaseSpec
 import org.kohsuke.github.GHIssueState
 import org.kohsuke.github.GHPullRequest
 import org.kohsuke.github.GitHub
@@ -162,19 +163,24 @@ fun main() {
     }
 
     allPrsToRebase.forEach {
-        println("Rebasing \"${it.title}\" ${it.base.ref} <- ${it.head.ref}...")
+        val headRef = it.head.ref
+        val baseRef = it.base.ref
+        println("Rebasing \"${it.title}\" $baseRef <- $headRef...")
 
         val currentBranch = gitRepository.branch
 
         try {
-            git.checkout().setName(it.head.ref).call()
+            git.checkout().setName(headRef).call()
 
-            val call = git.rebase().setUpstream(it.base.ref).call()
+            val call = git.rebase().setUpstream(baseRef).call()
 
             if (call.status.isSuccessful) {
                 println("Successfully rebased. Pushing changes to remote...")
 
-                git.push().setForce(true).call()
+                git
+                    .push()
+                    .setRefLeaseSpecs(RefLeaseSpec("refs/heads/$headRef", "refs/origin/$headRef"))
+                    .call()
 
                 println("Successfully pushed changes to remote.")
 
@@ -185,9 +191,8 @@ fun main() {
 
             val abortResult = git.rebase().setOperation(RebaseCommand.Operation.ABORT).call()
 
-            if (abortResult.status != RebaseResult.Status.ABORTED) {
-                throw IllegalStateException("Aborting rebase failed with status ${abortResult.status}")
-            }
+            abortResult.status == RebaseResult.Status.ABORTED &&
+                    throw IllegalStateException("Aborting rebase failed with status ${abortResult.status}")
 
             println("Successfully aborted.")
         } finally {
