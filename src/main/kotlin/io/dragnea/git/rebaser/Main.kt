@@ -202,5 +202,7 @@ fun main() {
         } finally {
             git.checkout().setName(currentBranch).call()
         }
+
+        println()
     }
 }
