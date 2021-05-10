@@ -25,7 +25,7 @@ fun getRepository(): Git {
     }
 }
 
-fun Git.getSshUrl(): String {
+fun Git.getRemoteUrl(): String {
     val remotes = remoteList().call()
 
     remotes.isNotEmpty() || throw IllegalStateException("Repository does not have any remote")
@@ -44,7 +44,7 @@ fun Git.getSshUrl(): String {
         println("origin remote has more than one URI. Choosing the first one...")
     }
 
-    return uris[0].path
+    return uris[0].toString()
 }
 
 fun Git.isSafePr(pr: GHPullRequest): Boolean {
@@ -99,13 +99,13 @@ fun main() {
 
     val myself = github.myself
 
-    val sshUrl = git.getSshUrl()
+    val remoteUrl = git.getRemoteUrl()
 
     val repository = myself
         .allRepositories
         .values
-        .find { it.sshUrl == sshUrl }
-        ?: throw IllegalArgumentException("Repository \"$sshUrl\" not found in ${github.apiUrl}")
+        .find { it.sshUrl == remoteUrl }
+        ?: throw IllegalArgumentException("Repository \"$remoteUrl\" not found in ${github.apiUrl}")
 
     println("Found repository \"${repository.fullName}\" in ${github.apiUrl}")
 
