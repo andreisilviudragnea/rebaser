@@ -97,35 +97,6 @@ fun Git.isSafeBranch(ref: String): Boolean {
     return true
 }
 
-fun Git.isRebasedPrDirectlyOverMaster(pr: GHPullRequest): Boolean {
-    val baseRef = pr.base.ref
-
-    baseRef == "master" || return false
-
-    val headRef = pr.head.ref
-
-    val headCommit = repository.findRef(headRef).objectId
-    val baseCommit = repository.findRef(baseRef).objectId
-
-    return log().addRange(headCommit, baseCommit).call().toList().isEmpty()
-}
-
-fun Git.computeAllPrsToRebase(allPrs: List<GHPullRequest>): List<GHPullRequest> {
-    return computeAllPrsToRebase(allPrs.filter { !isRebasedPrDirectlyOverMaster(it) }, "master")
-}
-
-fun Git.computeAllPrsToRebase(allPrs: List<GHPullRequest>, base: String): List<GHPullRequest> {
-    val prsToRebase = allPrs.filter { it.base.ref == base && isSafePr(it) }
-
-    val allPrsToRebase = prsToRebase.toMutableList()
-
-    for (pr in prsToRebase) {
-        allPrsToRebase += computeAllPrsToRebase(allPrs, pr.head.ref)
-    }
-
-    return allPrsToRebase
-}
-
 fun main() {
     val git = getRepository()
 
@@ -157,7 +128,7 @@ fun main() {
         println()
     }
 
-    val allPrsToRebase = git.computeAllPrsToRebase(allPrs)
+    val allPrsToRebase = allPrs.filter { git.isSafePr(it) }
 
     println()
 
@@ -169,15 +140,17 @@ fun main() {
 
     println()
 
-    allPrsToRebase.forEach {
-        it.rebasePr(git)
-        println()
-    }
+    do {
+        var changesPropagated = false
+
+        allPrsToRebase.forEach {
+            changesPropagated = changesPropagated || it.rebasePr(git)
+            println()
+        }
+    } while (changesPropagated)
 }
 
-private fun GHPullRequest.rebasePr(
-    git: Git
-) {
+private fun GHPullRequest.rebasePr(git: Git): Boolean {
     val headRef = head.ref
     val baseRef = base.ref
     println("Rebasing \"$title\" $baseRef <- $headRef...")
@@ -192,7 +165,7 @@ private fun GHPullRequest.rebasePr(
         if (call.status.isSuccessful) {
             if (git.isSafeBranch(headRef)) {
                 println("No changes for \"$title\". Not pushing to remote.")
-                return
+                return false
             }
 
             println("Successfully rebased \"$title\". Pushing changes to remote...")
@@ -208,27 +181,24 @@ private fun GHPullRequest.rebasePr(
             if (pushResult.any { it.status != RemoteRefUpdate.Status.OK }) {
                 println("Push to remote failed for \"$title\": $pushResult. Resetting...")
                 git.reset().setMode(ResetCommand.ResetType.HARD).setRef("origin/$headRef").call()
-                return
+                return false
             }
 
             println("Successfully pushed changes to remote for \"$title\"")
-            return
+            return true
         }
 
-        println("Rebase error ${call.status} for \"$title\".")
-        abortRebase(git)
+        println("Rebase error ${call.status} for \"$title\". Aborting...")
+
+        val abortResult = git.rebase().setOperation(RebaseCommand.Operation.ABORT).call()
+
+        abortResult.status == RebaseResult.Status.ABORTED ||
+                throw IllegalStateException("Aborting rebase failed with status ${abortResult.status}")
+
+        println("Successfully aborted \"$title\".")
     } finally {
         git.checkout().setName(currentBranch).call()
     }
-}
 
-private fun GHPullRequest.abortRebase(git: Git) {
-    println("Aborting \"$title\"...")
-
-    val abortResult = git.rebase().setOperation(RebaseCommand.Operation.ABORT).call()
-
-    abortResult.status == RebaseResult.Status.ABORTED ||
-            throw IllegalStateException("Aborting rebase failed with status ${abortResult.status}")
-
-    println("Successfully aborted \"$title\".")
+    return false
 }
