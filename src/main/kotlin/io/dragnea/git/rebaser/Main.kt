@@ -6,6 +6,7 @@ import org.eclipse.jgit.api.RebaseResult
 import org.eclipse.jgit.api.ResetCommand
 import org.eclipse.jgit.errors.RepositoryNotFoundException
 import org.eclipse.jgit.transport.RefLeaseSpec
+import org.eclipse.jgit.transport.RefSpec
 import org.eclipse.jgit.transport.RemoteRefUpdate
 import org.kohsuke.github.GHIssueState
 import org.kohsuke.github.GHPullRequest
@@ -198,6 +199,7 @@ private fun GHPullRequest.rebasePr(
 
             val pushResult = git
                 .push()
+                .setRefSpecs(RefSpec("refs/heads/$headRef").setForceUpdate(true))
                 .setRefLeaseSpecs(RefLeaseSpec("refs/heads/$headRef", "refs/origin/$headRef"))
                 .call()
                 .map { it.remoteUpdates }
