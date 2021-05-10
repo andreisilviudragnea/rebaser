@@ -111,7 +111,7 @@ fun main() {
     val repository = myself.getRepository(remoteName)
         ?: throw IllegalArgumentException("Repository \"$remoteName\" not found in ${github.apiUrl}")
 
-    println("Found repository \"${repository.name}\" in ${github.apiUrl}")
+    println("Found repository \"${repository.fullName}\" in ${github.apiUrl}")
 
     val allPrs = repository
         .getPullRequests(GHIssueState.OPEN)
