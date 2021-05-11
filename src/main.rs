@@ -1,14 +1,16 @@
-use git2::{Repository, Error};
+use git2::{Repository, Error, FetchOptions, RemoteCallbacks, Cred, Remote};
 use std::collections::HashMap;
 use github_rs::client::{Executor, Github};
 use serde_json::Value;
-use github_rs::repos::get::Repos;
+use std::env;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let repo = Repository::discover(".")?;
 
-    let origin_remote = repo.find_remote("origin")?;
+    let mut origin_remote = repo.find_remote("origin")?;
+
+    fetch(&mut origin_remote);
 
     println!("Origin remote: {}", origin_remote.url().unwrap());
 
@@ -36,4 +38,27 @@ async fn main() -> Result<(), Error> {
     }
 
     Ok(())
+}
+
+fn fetch(origin_remote: &mut Remote) {
+    let mut callbacks = RemoteCallbacks::new();
+    callbacks.credentials(|_url, username_from_url, _allowed_types| {
+        Cred::ssh_key(
+            username_from_url.unwrap(),
+            None,
+            std::path::Path::new(&format!("{}/.ssh/id_rsa", env::var("HOME").unwrap())),
+            None,
+        )
+    });
+
+    let mut fetch_options = FetchOptions::new();
+    fetch_options.remote_callbacks(callbacks);
+
+    origin_remote
+        .fetch(
+            &["+refs/heads/*:refs/remotes/origin/*"],
+            Some(&mut fetch_options),
+            None,
+        )
+        .unwrap();
 }
