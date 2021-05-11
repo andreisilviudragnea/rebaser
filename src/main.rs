@@ -2,9 +2,7 @@ use std::collections::HashMap;
 use std::env;
 
 use git2::{Cred, Error, FetchOptions, Remote, RemoteCallbacks, Repository};
-use github_rs::client::{Executor, Github};
 use regex::Regex;
-use serde_json::Value;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
