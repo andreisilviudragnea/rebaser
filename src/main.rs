@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::env;
 
 use git2::{Cred, Error, FetchOptions, Remote, RemoteCallbacks, Repository};
+use octocrab::params::State;
 use regex::Regex;
 
 #[tokio::main]
@@ -36,7 +37,12 @@ async fn main() -> Result<(), Error> {
 
     let pull_request_handler = octocrab.pulls(owner, repo);
 
-    let page = pull_request_handler.list().send().await.unwrap();
+    let page = pull_request_handler
+        .list()
+        .state(State::Open)
+        .send()
+        .await
+        .unwrap();
     println!("{}", page.items.len());
 
     Ok(())
