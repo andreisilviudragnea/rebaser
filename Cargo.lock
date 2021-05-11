@@ -1252,6 +1252,7 @@ dependencies = [
  "git2",
  "github-rs",
  "octocrab",
+ "regex",
  "serde_json",
  "tokio 1.5.0",
 ]

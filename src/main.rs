@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use github_rs::client::{Executor, Github};
 use serde_json::Value;
 use std::env;
+use regex::Regex;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -12,7 +13,14 @@ async fn main() -> Result<(), Error> {
 
     fetch(&mut origin_remote);
 
-    println!("Origin remote: {}", origin_remote.url().unwrap());
+    let remote_url = origin_remote.url().unwrap();
+    println!("Origin remote: {}", remote_url);
+
+    let regex = Regex::new(r".*@.*:(.*/.*).git").unwrap();
+
+    let captures = regex.captures(remote_url).unwrap();
+
+    println!("Remote repo: {}", &captures[1]);
 
     let mut settings = config::Config::default();
     settings.merge(config::Environment::with_prefix("GITHUB")).unwrap();
