@@ -8,6 +8,7 @@ import org.eclipse.jgit.errors.RepositoryNotFoundException
 import org.eclipse.jgit.transport.RefLeaseSpec
 import org.eclipse.jgit.transport.RefSpec
 import org.eclipse.jgit.transport.RemoteRefUpdate
+import org.eclipse.jgit.transport.URIish
 import org.kohsuke.github.GHIssueState
 import org.kohsuke.github.GHPullRequest
 import org.kohsuke.github.GitHubBuilder
@@ -25,7 +26,7 @@ fun getRepository(): Git {
     }
 }
 
-fun Git.getRemoteUrl(): String {
+fun Git.getRemoteUrl(): URIish {
     val remotes = remoteList().call()
 
     remotes.isNotEmpty() || throw IllegalStateException("Repository does not have any remote")
@@ -44,7 +45,7 @@ fun Git.getRemoteUrl(): String {
         println("origin remote has more than one URI. Choosing the first one...")
     }
 
-    return uris[0].toString()
+    return uris[0]
 }
 
 fun Git.isSafePr(pr: GHPullRequest): Boolean {
@@ -97,17 +98,15 @@ fun main() {
 
     val github = GitHubBuilder.fromPropertyFile().build()
 
-    val myself = github.myself
-
     val remoteUrl = git.getRemoteUrl()
+    val repo = "(.*/.*).git".toRegex().matchEntire(remoteUrl.path)!!.groups[1]!!.value
 
-    val repository = myself
-        .allRepositories
-        .values
-        .find { it.sshUrl == remoteUrl }
+    val repository = github.getRepository(repo)
         ?: throw IllegalArgumentException("Repository \"$remoteUrl\" not found in ${github.apiUrl}")
 
     println("Found repository \"${repository.fullName}\" in ${github.apiUrl}")
+
+    val myself = github.myself
 
     val allPrs = repository
         .getPullRequests(GHIssueState.OPEN)
