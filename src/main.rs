@@ -4,6 +4,7 @@ use std::env;
 use git2::{Cred, Error, FetchOptions, Remote, RemoteCallbacks, Repository};
 use octocrab::params::State;
 use regex::Regex;
+use octocrab::models::pulls::PullRequest;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -35,6 +36,8 @@ async fn main() -> Result<(), Error> {
         .build()
         .unwrap();
 
+    let user = octocrab.current().user().await.unwrap();
+
     let pull_request_handler = octocrab.pulls(owner, repo);
 
     let page = pull_request_handler
@@ -43,7 +46,14 @@ async fn main() -> Result<(), Error> {
         .send()
         .await
         .unwrap();
-    println!("{}", page.items.len());
+
+    let my_prs = page
+        .items
+        .into_iter()
+        .filter(|it| it.user == user)
+        .collect::<Vec<PullRequest>>();
+
+    println!("{}", my_prs.len());
 
     Ok(())
 }
