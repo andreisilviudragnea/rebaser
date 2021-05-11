@@ -2,9 +2,9 @@ use std::collections::HashMap;
 use std::env;
 
 use git2::{Cred, Error, FetchOptions, Remote, RemoteCallbacks, Repository};
+use octocrab::models::pulls::PullRequest;
 use octocrab::params::State;
 use regex::Regex;
-use octocrab::models::pulls::PullRequest;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
@@ -26,7 +26,9 @@ async fn main() -> Result<(), Error> {
     println!("Remote repo: {}/{}", owner, repo);
 
     let mut settings = config::Config::default();
-    settings.merge(config::Environment::with_prefix("GITHUB")).unwrap();
+    settings
+        .merge(config::Environment::with_prefix("GITHUB"))
+        .unwrap();
 
     let map = settings.try_into::<HashMap<String, String>>().unwrap();
     println!("{:?}", map);
@@ -53,9 +55,12 @@ async fn main() -> Result<(), Error> {
         .filter(|it| it.user == user)
         .collect::<Vec<PullRequest>>();
 
-    my_prs
-        .iter()
-        .for_each(|pr| println!("\"{}\" {} <- {}", pr.title, pr.base.ref_field, pr.head.ref_field));
+    my_prs.iter().for_each(|pr| {
+        println!(
+            "\"{}\" {} <- {}",
+            pr.title, pr.base.ref_field, pr.head.ref_field
+        )
+    });
 
     Ok(())
 }
