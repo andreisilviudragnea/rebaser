@@ -53,7 +53,9 @@ async fn main() -> Result<(), Error> {
         .filter(|it| it.user == user)
         .collect::<Vec<PullRequest>>();
 
-    println!("{}", my_prs.len());
+    my_prs
+        .iter()
+        .for_each(|pr| println!("\"{}\" {} <- {}", pr.title, pr.base.ref_field, pr.head.ref_field));
 
     Ok(())
 }
