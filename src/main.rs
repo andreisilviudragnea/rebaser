@@ -77,7 +77,46 @@ async fn main() -> Result<(), Error> {
         );
     });
 
+    println!();
+
+    loop {
+        let mut changes_propagated = false;
+
+        safe_prs.iter().for_each(|pr| {
+            changes_propagated = rebase(pr, &repo) || changes_propagated;
+            println!()
+        });
+
+        if !changes_propagated {
+            break;
+        }
+    }
+
     Ok(())
+}
+
+fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
+    let head_ref = &pr.head.ref_field;
+    let base_ref = &pr.base.ref_field;
+    println!("Rebasing \"{}\" {} <- {}...", pr.title, base_ref, head_ref);
+
+    let current_head = repo.head().unwrap();
+    let current_head_name = current_head.name().unwrap();
+    println!("Current HEAD is {}", current_head_name);
+
+    repo.set_head(&format!("refs/heads/{}", head_ref)).unwrap();
+    repo.checkout_head(None).unwrap();
+
+    let head = repo.head().unwrap();
+    println!("Current HEAD is {}", head.name().unwrap());
+
+    repo.set_head(current_head_name).unwrap();
+    repo.checkout_head(None).unwrap();
+
+    let head = repo.head().unwrap();
+    println!("Current HEAD is {}", head.name().unwrap());
+
+    false
 }
 
 fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
