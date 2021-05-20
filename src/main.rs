@@ -3,7 +3,10 @@ use std::env;
 
 use git2::build::CheckoutBuilder;
 use git2::ResetType::Hard;
-use git2::{Cred, Error, FetchOptions, RebaseOperationType, Remote, RemoteCallbacks, Repository};
+use git2::{
+    Cred, Error, FetchOptions, PushOptions, RebaseOperationType, Remote, RemoteCallbacks,
+    Repository,
+};
 use octocrab::models::pulls::PullRequest;
 use octocrab::params::State;
 use regex::Regex;
@@ -85,7 +88,7 @@ async fn main() -> Result<(), Error> {
         let mut changes_propagated = false;
 
         safe_prs.iter().for_each(|pr| {
-            changes_propagated = rebase(pr, &repo) || changes_propagated;
+            changes_propagated = rebase(pr, &repo, &mut origin_remote) || changes_propagated;
             println!()
         });
 
@@ -97,7 +100,7 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
-fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
+fn rebase(pr: &PullRequest, repo: &Repository, origin_remote: &mut Remote) -> bool {
     with_revert_to_current_branch(&repo, || {
         let head_ref = &pr.head.ref_field;
         let base_ref = &pr.base.ref_field;
@@ -172,23 +175,40 @@ fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
             pr.title
         );
 
-        let origin_refname = &format!("origin/{}", head_ref);
+        let mut options = PushOptions::new();
 
-        let origin_reference = repo
-            .resolve_reference_from_short_name(origin_refname)
-            .unwrap();
+        options.remote_callbacks(credentials_callback());
 
-        let origin_commit = origin_reference.peel_to_commit().unwrap();
+        match origin_remote.push(&[format!("refs/heads/{}", head_ref)], Some(&mut options)) {
+            Ok(()) => {
+                println!("Successfully pushed changes to remote for \"{}\"", pr.title);
+                true
+            }
+            Err(e) => {
+                println!(
+                    "Push to remote failed for \"{}\": {}. Resetting...",
+                    pr.title, e
+                );
 
-        repo.reset(origin_commit.as_object(), Hard, None).unwrap();
+                let origin_refname = &format!("origin/{}", head_ref);
 
-        println!("Successfully reset.");
+                let origin_reference = repo
+                    .resolve_reference_from_short_name(origin_refname)
+                    .unwrap();
 
-        false
+                let origin_commit = origin_reference.peel_to_commit().unwrap();
+
+                repo.reset(origin_commit.as_object(), Hard, None).unwrap();
+
+                println!("Successfully reset.");
+
+                false
+            }
+        }
     })
 }
 
-fn with_revert_to_current_branch<F: Fn() -> bool>(repo: &Repository, f: F) -> bool {
+fn with_revert_to_current_branch<F: FnMut() -> bool>(repo: &Repository, mut f: F) -> bool {
     let current_head = repo.head().unwrap();
     let current_head_name = current_head.name().unwrap();
     println!("Current HEAD is {}", current_head_name);
@@ -295,15 +315,7 @@ fn log_count(repo: &Repository, since: &str, until: &str) -> usize {
 }
 
 fn fetch(origin_remote: &mut Remote) {
-    let mut callbacks = RemoteCallbacks::new();
-    callbacks.credentials(|_url, username_from_url, _allowed_types| {
-        Cred::ssh_key(
-            username_from_url.unwrap(),
-            None,
-            std::path::Path::new(&format!("{}/.ssh/id_rsa", env::var("HOME").unwrap())),
-            None,
-        )
-    });
+    let callbacks = credentials_callback();
 
     let mut fetch_options = FetchOptions::new();
     fetch_options.remote_callbacks(callbacks);
@@ -315,4 +327,17 @@ fn fetch(origin_remote: &mut Remote) {
             None,
         )
         .unwrap();
+}
+
+fn credentials_callback<'a>() -> RemoteCallbacks<'a> {
+    let mut callbacks = RemoteCallbacks::new();
+    callbacks.credentials(|_url, username_from_url, _allowed_types| {
+        Cred::ssh_key(
+            username_from_url.unwrap(),
+            None,
+            std::path::Path::new(&format!("{}/.ssh/id_rsa", env::var("HOME").unwrap())),
+            None,
+        )
+    });
+    callbacks
 }
