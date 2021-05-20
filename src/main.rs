@@ -60,27 +60,59 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
+fn is_safe_branch(repo: &Repository, refname: &str) -> bool {
+    let origin_refname = &format!("origin/{}", refname);
+
+    let (number_of_commits_ahead, number_of_commits_behind) =
+        compare_refs(repo, refname, origin_refname);
+
+    if number_of_commits_ahead > 0 {
+        println!(
+            "Branch \"{}\" is unsafe because it is {} commits ahead \"{}\"",
+            refname, number_of_commits_ahead, origin_refname
+        );
+        return false;
+    }
+
+    if number_of_commits_behind > 0 {
+        println!(
+            "Branch \"{}\" is unsafe because it is {} commits behind \"{}\"",
+            refname, number_of_commits_behind, origin_refname
+        );
+        return false;
+    }
+
+    true
+}
+
 fn describe(pr: &PullRequest, repo: &Repository) {
     let head_ref = &pr.head.ref_field;
     let base_ref = &pr.base.ref_field;
 
     println!("\"{}\" {} <- {}", pr.title, base_ref, head_ref);
 
-    let head_commit = repo.resolve_reference_from_short_name(head_ref).unwrap();
-    let base_commit = repo.resolve_reference_from_short_name(base_ref).unwrap();
-
-    let head_commit_name = head_commit.name().unwrap();
-    let base_commit_name = base_commit.name().unwrap();
+    let (number_of_commits_ahead, number_of_commits_behind) =
+        compare_refs(repo, head_ref, base_ref);
 
     println!(
         "\"{}\" is {} commits ahead, {} commits behind \"{}\"",
-        head_ref,
-        log_count(repo, base_commit_name, head_commit_name),
-        log_count(repo, head_commit_name, base_commit_name),
-        base_ref
+        head_ref, number_of_commits_ahead, number_of_commits_behind, base_ref
     );
 
     println!();
+}
+
+fn compare_refs(repo: &Repository, head_ref: &str, base_ref: &str) -> (usize, usize) {
+    let head_reference = repo.resolve_reference_from_short_name(head_ref).unwrap();
+    let head_commit_name = head_reference.name().unwrap();
+
+    let base_reference = repo.resolve_reference_from_short_name(base_ref).unwrap();
+    let base_commit_name = base_reference.name().unwrap();
+
+    (
+        log_count(repo, base_commit_name, head_commit_name),
+        log_count(repo, head_commit_name, base_commit_name),
+    )
 }
 
 fn log_count(repo: &Repository, since: &str, until: &str) -> usize {
