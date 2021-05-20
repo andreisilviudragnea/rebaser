@@ -64,7 +64,7 @@ fn describe(pr: &PullRequest, repo: &Repository) {
     let head_ref = &pr.head.ref_field;
     let base_ref = &pr.base.ref_field;
 
-    println!("\"{}\" {} <- {}", pr.title, head_ref, base_ref);
+    println!("\"{}\" {} <- {}", pr.title, base_ref, head_ref);
 
     let head_commit = repo.resolve_reference_from_short_name(head_ref).unwrap();
     let base_commit = repo.resolve_reference_from_short_name(base_ref).unwrap();
