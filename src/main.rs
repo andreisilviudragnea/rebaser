@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::env;
 
+use git2::build::CheckoutBuilder;
 use git2::{Cred, Error, FetchOptions, Remote, RemoteCallbacks, Repository};
 use octocrab::models::pulls::PullRequest;
 use octocrab::params::State;
@@ -105,7 +106,9 @@ fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
     println!("Current HEAD is {}", current_head_name);
 
     repo.set_head(&format!("refs/heads/{}", head_ref)).unwrap();
-    repo.checkout_index(None, None).unwrap();
+    let mut checkout_builder = CheckoutBuilder::new();
+    checkout_builder.force();
+    repo.checkout_head(Some(&mut checkout_builder)).unwrap();
 
     let head = repo.head().unwrap();
     println!("Current HEAD is {}", head.name().unwrap());
