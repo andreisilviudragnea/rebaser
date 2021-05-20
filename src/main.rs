@@ -2,7 +2,11 @@ use std::collections::HashMap;
 use std::env;
 
 use git2::build::CheckoutBuilder;
-use git2::{Cred, Error, FetchOptions, Remote, RemoteCallbacks, Repository};
+use git2::ResetType::Hard;
+use git2::{
+    Cred, Error, FetchOptions, Oid, RebaseOperation, RebaseOperationType, Remote, RemoteCallbacks,
+    Repository, ResetType,
+};
 use octocrab::models::pulls::PullRequest;
 use octocrab::params::State;
 use regex::Regex;
@@ -126,7 +130,55 @@ fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
 
     println!("Rebase operations: {}", rebase.len());
 
-    rebase.abort().unwrap();
+    let head_commit = head.peel_to_commit().unwrap();
+    let signature = head_commit.committer();
+
+    loop {
+        match rebase.next() {
+            Some(op) => match op {
+                Ok(operation) => match operation.kind().unwrap() {
+                    RebaseOperationType::Pick => match rebase.commit(None, &signature, None) {
+                        Ok(oid) => {
+                            println!("Successfully committed {}", oid)
+                        }
+                        Err(e) => {
+                            println!("Error committing for {}: {}", pr.title, e);
+                            rebase.abort().unwrap();
+                            return false;
+                        }
+                    },
+                    RebaseOperationType::Reword => {}
+                    RebaseOperationType::Edit => {}
+                    RebaseOperationType::Squash => {}
+                    RebaseOperationType::Fixup => {}
+                    RebaseOperationType::Exec => {}
+                },
+                Err(e) => {
+                    println!("Error rebasing {}: {}", pr.title, e);
+                    rebase.abort().unwrap();
+                    return false;
+                }
+            },
+            None => break,
+        }
+    }
+
+    println!(
+        "Successfully rebased \"{}\". Pushing changes to remote...",
+        pr.title
+    );
+
+    let origin_refname = &format!("origin/{}", head_ref);
+
+    let origin_reference = repo
+        .resolve_reference_from_short_name(origin_refname)
+        .unwrap();
+
+    let origin_commit = origin_reference.peel_to_commit().unwrap();
+
+    repo.reset(origin_commit.as_object(), Hard, None).unwrap();
+
+    println!("Successfully reset.");
 
     repo.set_head(current_head_name).unwrap();
     let mut checkout_builder = CheckoutBuilder::new();
