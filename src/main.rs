@@ -91,9 +91,9 @@ fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
         return false;
     }
 
-    let head_ref = &pr.base.ref_field;
+    let head_ref = &pr.head.ref_field;
 
-    if !is_safe_branch(repo, base_ref) {
+    if !is_safe_branch(repo, head_ref) {
         println!(
             "Pr \"{}\" is not safe because head ref \"{}\" is not safe",
             pr.title, head_ref
