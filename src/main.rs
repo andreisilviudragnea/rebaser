@@ -113,26 +113,28 @@ fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
     let head = repo.head().unwrap();
     println!("Current HEAD is {}", head.name().unwrap());
 
-    // let reference = repo.resolve_reference_from_short_name(base_ref).unwrap();
-    //
-    // let mut rebase = repo
-    //     .rebase(
-    //         None,
-    //         Some(&repo.reference_to_annotated_commit(&reference).unwrap()),
-    //         None,
-    //         None,
-    //     )
-    //     .unwrap();
-    //
-    // println!("Rebase operations: {}", rebase.len());
-    //
-    // rebase.abort().unwrap();
-    //
-    // repo.set_head(current_head_name).unwrap();
-    // repo.checkout_head(None).unwrap();
-    //
-    // let head = repo.head().unwrap();
-    // println!("Current HEAD is {}", head.name().unwrap());
+    let reference = repo.resolve_reference_from_short_name(base_ref).unwrap();
+
+    let mut rebase = repo
+        .rebase(
+            None,
+            Some(&repo.reference_to_annotated_commit(&reference).unwrap()),
+            None,
+            None,
+        )
+        .unwrap();
+
+    println!("Rebase operations: {}", rebase.len());
+
+    rebase.abort().unwrap();
+
+    repo.set_head(current_head_name).unwrap();
+    let mut checkout_builder = CheckoutBuilder::new();
+    checkout_builder.force();
+    repo.checkout_head(Some(&mut checkout_builder)).unwrap();
+
+    let head = repo.head().unwrap();
+    println!("Current HEAD is {}", head.name().unwrap());
 
     false
 }
