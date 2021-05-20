@@ -49,13 +49,13 @@ async fn main() -> Result<(), Error> {
         .await
         .unwrap();
 
-    let my_prs = page
+    let my_open_prs = page
         .items
         .into_iter()
         .filter(|it| it.user == user)
         .collect::<Vec<PullRequest>>();
 
-    my_prs.iter().for_each(|pr| describe(pr, &repo));
+    my_open_prs.iter().for_each(|pr| describe(pr, &repo));
 
     Ok(())
 }
