@@ -57,7 +57,51 @@ async fn main() -> Result<(), Error> {
 
     my_open_prs.iter().for_each(|pr| describe(pr, &repo));
 
+    let safe_prs = my_open_prs
+        .iter()
+        .filter(|pr| is_safe_pr(&repo, pr))
+        .collect::<Vec<&PullRequest>>();
+
+    println!();
+
+    println!(
+        "Going to rebase {}/{} safe pull requests:",
+        safe_prs.len(),
+        my_open_prs.len()
+    );
+
+    safe_prs.iter().for_each(|pr| {
+        println!(
+            "\"{}\" {} <- {}",
+            pr.title, pr.base.ref_field, pr.head.ref_field
+        );
+    });
+
     Ok(())
+}
+
+fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
+    let base_ref = &pr.base.ref_field;
+
+    if !is_safe_branch(repo, base_ref) {
+        println!(
+            "Pr \"{}\" is not safe because base ref \"{}\" is not safe",
+            pr.title, base_ref
+        );
+        return false;
+    }
+
+    let head_ref = &pr.base.ref_field;
+
+    if !is_safe_branch(repo, base_ref) {
+        println!(
+            "Pr \"{}\" is not safe because head ref \"{}\" is not safe",
+            pr.title, head_ref
+        );
+        return false;
+    }
+
+    true
 }
 
 fn is_safe_branch(repo: &Repository, refname: &str) -> bool {
