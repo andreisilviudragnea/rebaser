@@ -3,10 +3,7 @@ use std::env;
 
 use git2::build::CheckoutBuilder;
 use git2::ResetType::Hard;
-use git2::{
-    Cred, Error, FetchOptions, Oid, RebaseOperation, RebaseOperationType, Remote, RemoteCallbacks,
-    Repository, ResetType,
-};
+use git2::{Cred, Error, FetchOptions, RebaseOperationType, Remote, RemoteCallbacks, Repository};
 use octocrab::models::pulls::PullRequest;
 use octocrab::params::State;
 use regex::Regex;
