@@ -22,8 +22,8 @@ async fn main() -> Result<(), Error> {
     let captures = regex.captures(remote_url).unwrap();
 
     let owner = &captures[1];
-    let repo = &captures[2];
-    println!("Remote repo: {}/{}", owner, repo);
+    let repo_name = &captures[2];
+    println!("Remote repo: {}/{}", owner, repo_name);
 
     let mut settings = config::Config::default();
     settings
@@ -40,7 +40,7 @@ async fn main() -> Result<(), Error> {
 
     let user = octocrab.current().user().await.unwrap();
 
-    let pull_request_handler = octocrab.pulls(owner, repo);
+    let pull_request_handler = octocrab.pulls(owner, repo_name);
 
     let page = pull_request_handler
         .list()
@@ -55,14 +55,26 @@ async fn main() -> Result<(), Error> {
         .filter(|it| it.user == user)
         .collect::<Vec<PullRequest>>();
 
-    my_prs.iter().for_each(|pr| {
-        println!(
-            "\"{}\" {} <- {}",
-            pr.title, pr.base.ref_field, pr.head.ref_field
-        )
-    });
+    my_prs.iter().for_each(|pr| describe(pr, &repo));
 
     Ok(())
+}
+
+fn describe(pr: &PullRequest, repo: &Repository) {
+    let head_ref = &pr.head.ref_field;
+    let base_ref = &pr.base.ref_field;
+
+    println!("\"{}\" {} <- {}", pr.title, head_ref, base_ref);
+
+    let head_commit = repo.resolve_reference_from_short_name(head_ref).unwrap();
+    let base_commit = repo.resolve_reference_from_short_name(base_ref).unwrap();
+
+    println!(
+        "\"{}\" {} <- {}",
+        pr.title,
+        head_commit.name().unwrap(),
+        base_commit.name().unwrap()
+    );
 }
 
 fn fetch(origin_remote: &mut Remote) {
