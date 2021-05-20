@@ -141,11 +141,21 @@ fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
                                 return false;
                             }
                         },
-                        RebaseOperationType::Reword => {}
-                        RebaseOperationType::Edit => {}
-                        RebaseOperationType::Squash => {}
-                        RebaseOperationType::Fixup => {}
-                        RebaseOperationType::Exec => {}
+                        RebaseOperationType::Reword => {
+                            panic!("Reword encountered");
+                        }
+                        RebaseOperationType::Edit => {
+                            panic!("Edit encountered");
+                        }
+                        RebaseOperationType::Squash => {
+                            panic!("Squash encountered");
+                        }
+                        RebaseOperationType::Fixup => {
+                            panic!("Fixup encountered");
+                        }
+                        RebaseOperationType::Exec => {
+                            panic!("Exec encountered");
+                        }
                     },
                     Err(e) => {
                         println!("Error rebasing {}: {}. Aborting...", pr.title, e);
