@@ -98,84 +98,92 @@ async fn main() -> Result<(), Error> {
 }
 
 fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
-    let head_ref = &pr.head.ref_field;
-    let base_ref = &pr.base.ref_field;
-    println!("Rebasing \"{}\" {} <- {}...", pr.title, base_ref, head_ref);
+    with_revert_to_current_branch(&repo, || {
+        let head_ref = &pr.head.ref_field;
+        let base_ref = &pr.base.ref_field;
+        println!("Rebasing \"{}\" {} <- {}...", pr.title, base_ref, head_ref);
 
+        repo.set_head(&format!("refs/heads/{}", head_ref)).unwrap();
+        let mut checkout_builder = CheckoutBuilder::new();
+        checkout_builder.force();
+        repo.checkout_head(Some(&mut checkout_builder)).unwrap();
+
+        let head = repo.head().unwrap();
+        println!("Current HEAD is {}", head.name().unwrap());
+
+        let reference = repo.resolve_reference_from_short_name(base_ref).unwrap();
+
+        let mut rebase = repo
+            .rebase(
+                None,
+                Some(&repo.reference_to_annotated_commit(&reference).unwrap()),
+                None,
+                None,
+            )
+            .unwrap();
+
+        println!("Rebase operations: {}", rebase.len());
+
+        let head_commit = head.peel_to_commit().unwrap();
+        let signature = head_commit.committer();
+
+        loop {
+            match rebase.next() {
+                Some(op) => match op {
+                    Ok(operation) => match operation.kind().unwrap() {
+                        RebaseOperationType::Pick => match rebase.commit(None, &signature, None) {
+                            Ok(oid) => {
+                                println!("Successfully committed {}", oid)
+                            }
+                            Err(e) => {
+                                println!("Error committing for {}: {}. Aborting...", pr.title, e);
+                                rebase.abort().unwrap();
+                                return false;
+                            }
+                        },
+                        RebaseOperationType::Reword => {}
+                        RebaseOperationType::Edit => {}
+                        RebaseOperationType::Squash => {}
+                        RebaseOperationType::Fixup => {}
+                        RebaseOperationType::Exec => {}
+                    },
+                    Err(e) => {
+                        println!("Error rebasing {}: {}. Aborting...", pr.title, e);
+                        rebase.abort().unwrap();
+                        return false;
+                    }
+                },
+                None => break,
+            }
+        }
+
+        println!(
+            "Successfully rebased \"{}\". Pushing changes to remote...",
+            pr.title
+        );
+
+        let origin_refname = &format!("origin/{}", head_ref);
+
+        let origin_reference = repo
+            .resolve_reference_from_short_name(origin_refname)
+            .unwrap();
+
+        let origin_commit = origin_reference.peel_to_commit().unwrap();
+
+        repo.reset(origin_commit.as_object(), Hard, None).unwrap();
+
+        println!("Successfully reset.");
+
+        false
+    })
+}
+
+fn with_revert_to_current_branch<F: Fn() -> bool>(repo: &Repository, f: F) -> bool {
     let current_head = repo.head().unwrap();
     let current_head_name = current_head.name().unwrap();
     println!("Current HEAD is {}", current_head_name);
 
-    repo.set_head(&format!("refs/heads/{}", head_ref)).unwrap();
-    let mut checkout_builder = CheckoutBuilder::new();
-    checkout_builder.force();
-    repo.checkout_head(Some(&mut checkout_builder)).unwrap();
-
-    let head = repo.head().unwrap();
-    println!("Current HEAD is {}", head.name().unwrap());
-
-    let reference = repo.resolve_reference_from_short_name(base_ref).unwrap();
-
-    let mut rebase = repo
-        .rebase(
-            None,
-            Some(&repo.reference_to_annotated_commit(&reference).unwrap()),
-            None,
-            None,
-        )
-        .unwrap();
-
-    println!("Rebase operations: {}", rebase.len());
-
-    let head_commit = head.peel_to_commit().unwrap();
-    let signature = head_commit.committer();
-
-    loop {
-        match rebase.next() {
-            Some(op) => match op {
-                Ok(operation) => match operation.kind().unwrap() {
-                    RebaseOperationType::Pick => match rebase.commit(None, &signature, None) {
-                        Ok(oid) => {
-                            println!("Successfully committed {}", oid)
-                        }
-                        Err(e) => {
-                            println!("Error committing for {}: {}. Aborting...", pr.title, e);
-                            rebase.abort().unwrap();
-                            return false;
-                        }
-                    },
-                    RebaseOperationType::Reword => {}
-                    RebaseOperationType::Edit => {}
-                    RebaseOperationType::Squash => {}
-                    RebaseOperationType::Fixup => {}
-                    RebaseOperationType::Exec => {}
-                },
-                Err(e) => {
-                    println!("Error rebasing {}: {}. Aborting...", pr.title, e);
-                    rebase.abort().unwrap();
-                    return false;
-                }
-            },
-            None => break,
-        }
-    }
-
-    println!(
-        "Successfully rebased \"{}\". Pushing changes to remote...",
-        pr.title
-    );
-
-    let origin_refname = &format!("origin/{}", head_ref);
-
-    let origin_reference = repo
-        .resolve_reference_from_short_name(origin_refname)
-        .unwrap();
-
-    let origin_commit = origin_reference.peel_to_commit().unwrap();
-
-    repo.reset(origin_commit.as_object(), Hard, None).unwrap();
-
-    println!("Successfully reset.");
+    let result = f();
 
     repo.set_head(current_head_name).unwrap();
     let mut checkout_builder = CheckoutBuilder::new();
@@ -185,7 +193,7 @@ fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
     let head = repo.head().unwrap();
     println!("Current HEAD is {}", head.name().unwrap());
 
-    false
+    result
 }
 
 fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
