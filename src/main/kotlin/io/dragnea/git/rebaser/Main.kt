@@ -108,19 +108,19 @@ fun main() {
 
     val myself = github.myself
 
-    val allPrs = repository
+    val myOpenPrs = repository
         .getPullRequests(GHIssueState.OPEN)
         .filter { it.user == myself }
 
-    allPrs.forEach { it.describe(git) }
+    myOpenPrs.forEach { it.describe(git) }
 
-    val allPrsToRebase = allPrs.filter { git.isSafePr(it) }
+    val safePrs = myOpenPrs.filter { git.isSafePr(it) }
 
     println()
 
-    println("Going to rebase ${allPrsToRebase.size} safe pull requests:")
+    println("Going to rebase ${safePrs.size}/${myOpenPrs.size} safe pull requests:")
 
-    allPrsToRebase.forEach {
+    safePrs.forEach {
         println("\"${it.title}\" ${it.base.ref} <- ${it.head.ref}")
     }
 
@@ -129,7 +129,7 @@ fun main() {
     do {
         var changesPropagated = false
 
-        allPrsToRebase.forEach {
+        safePrs.forEach {
             changesPropagated = it.rebase(git) || changesPropagated
             println()
         }
