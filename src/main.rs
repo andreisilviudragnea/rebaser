@@ -125,11 +125,11 @@ fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
     //
     // rebase.abort().unwrap();
     //
-    // repo.set_head(current_head_name).unwrap();
-    // repo.checkout_head(None).unwrap();
-    //
-    // let head = repo.head().unwrap();
-    // println!("Current HEAD is {}", head.name().unwrap());
+    repo.set_head(current_head_name).unwrap();
+    repo.checkout_head(None).unwrap();
+
+    let head = repo.head().unwrap();
+    println!("Current HEAD is {}", head.name().unwrap());
 
     false
 }
