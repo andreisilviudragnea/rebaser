@@ -72,24 +72,24 @@ fn describe(pr: &PullRequest, repo: &Repository) {
     let head_commit_name = head_commit.name().unwrap();
     let base_commit_name = base_commit.name().unwrap();
 
-    let mut revwalk = repo.revwalk().unwrap();
-    revwalk.hide_ref(base_commit_name).unwrap();
-    revwalk.push_ref(head_commit_name).unwrap();
-
-    let number_of_commits_ahead = revwalk.into_iter().count();
-
-    let mut revwalk = repo.revwalk().unwrap();
-    revwalk.hide_ref(head_commit_name).unwrap();
-    revwalk.push_ref(base_commit_name).unwrap();
-
-    let number_of_commits_behind = revwalk.into_iter().count();
-
     println!(
         "\"{}\" is {} commits ahead, {} commits behind \"{}\"",
-        head_ref, number_of_commits_ahead, number_of_commits_behind, base_ref
+        head_ref,
+        log_count(repo, base_commit_name, head_commit_name),
+        log_count(repo, head_commit_name, base_commit_name),
+        base_ref
     );
 
     println!();
+}
+
+fn log_count(repo: &Repository, since: &str, until: &str) -> usize {
+    let mut revwalk = repo.revwalk().unwrap();
+
+    revwalk.hide_ref(since).unwrap();
+    revwalk.push_ref(until).unwrap();
+
+    revwalk.into_iter().count()
 }
 
 fn fetch(origin_remote: &mut Remote) {
