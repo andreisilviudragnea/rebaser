@@ -139,7 +139,7 @@ fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
                             println!("Successfully committed {}", oid)
                         }
                         Err(e) => {
-                            println!("Error committing for {}: {}", pr.title, e);
+                            println!("Error committing for {}: {}. Aborting...", pr.title, e);
                             rebase.abort().unwrap();
                             return false;
                         }
@@ -151,7 +151,7 @@ fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
                     RebaseOperationType::Exec => {}
                 },
                 Err(e) => {
-                    println!("Error rebasing {}: {}", pr.title, e);
+                    println!("Error rebasing {}: {}. Aborting...", pr.title, e);
                     rebase.abort().unwrap();
                     return false;
                 }
