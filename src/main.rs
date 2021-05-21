@@ -170,6 +170,8 @@ fn rebase(pr: &PullRequest, repo: &Repository, origin_remote: &mut Remote) -> bo
             }
         }
 
+        rebase.finish(None).unwrap();
+
         println!(
             "Successfully rebased \"{}\". Pushing changes to remote...",
             pr.title
