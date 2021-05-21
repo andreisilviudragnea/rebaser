@@ -5,6 +5,7 @@ use octocrab::models::pulls::PullRequest;
 use octocrab::params::State;
 
 use crate::git::{describe, fetch, get_owner_repo_name, is_safe_pr, rebase_and_push};
+use octocrab::{Octocrab, Page};
 
 mod git;
 
@@ -35,22 +36,42 @@ async fn main() {
 
     let pull_request_handler = octocrab.pulls(owner, repo_name);
 
-    let page = pull_request_handler
+    let mut page = pull_request_handler
         .list()
         .state(State::Open)
+        .per_page(1)
         .send()
         .await
         .unwrap();
 
-    let my_open_prs = page
+    let mut all_my_open_prs = page
         .items
         .into_iter()
         .filter(|it| it.user == user)
         .collect::<Vec<PullRequest>>();
 
-    my_open_prs.iter().for_each(|pr| describe(pr, &repo));
+    loop {
+        match &page.next {
+            None => break,
+            Some(url) => {
+                page = octocrab
+                    .get_page(&Some(url.to_owned()))
+                    .await
+                    .unwrap()
+                    .unwrap();
 
-    let safe_prs = my_open_prs
+                let my_open_prs = page.items.into_iter().filter(|it| it.user == user);
+
+                for item in my_open_prs {
+                    all_my_open_prs.push(item)
+                }
+            }
+        }
+    }
+
+    all_my_open_prs.iter().for_each(|pr| describe(pr, &repo));
+
+    let safe_prs = all_my_open_prs
         .iter()
         .filter(|pr| is_safe_pr(&repo, pr))
         .collect::<Vec<&PullRequest>>();
@@ -60,7 +81,7 @@ async fn main() {
     println!(
         "Going to rebase {}/{} safe pull requests:",
         safe_prs.len(),
-        my_open_prs.len()
+        all_my_open_prs.len()
     );
 
     safe_prs.iter().for_each(|pr| {
