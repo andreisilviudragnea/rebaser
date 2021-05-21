@@ -4,6 +4,7 @@ use git2::{
     Cred, FetchOptions, PushOptions, RebaseOperationType, Remote, RemoteCallbacks, Repository,
 };
 use octocrab::models::pulls::PullRequest;
+use regex::Regex;
 use std::env;
 
 fn credentials_callback<'a>() -> RemoteCallbacks<'a> {
@@ -282,4 +283,20 @@ pub(crate) fn describe(pr: &PullRequest, repo: &Repository) {
     );
 
     println!();
+}
+
+pub(crate) fn get_owner_repo_name(origin_remote: &Remote) -> (String, String) {
+    let remote_url = origin_remote.url().unwrap();
+    println!("Origin remote: {}", remote_url);
+
+    let regex = Regex::new(r".*@.*:(.*)/(.*).git").unwrap();
+
+    let captures = regex.captures(remote_url).unwrap();
+
+    let owner = &captures[1];
+    let repo_name = &captures[2];
+
+    println!("Remote repo: {}/{}", owner, repo_name);
+
+    (owner.to_owned(), repo_name.to_owned())
 }
