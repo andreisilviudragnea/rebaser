@@ -186,7 +186,7 @@ fn rebase(pr: &PullRequest, repo: &Repository, origin_remote: &mut Remote) -> bo
 
         options.remote_callbacks(credentials_callback());
 
-        match origin_remote.push(&[format!("refs/heads/{}", head_ref)], Some(&mut options)) {
+        match origin_remote.push(&[format!("+refs/heads/{}", head_ref)], Some(&mut options)) {
             Ok(()) => {
                 println!("Successfully pushed changes to remote for \"{}\"", pr.title);
                 true
