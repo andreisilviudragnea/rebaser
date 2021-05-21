@@ -3,9 +3,8 @@ use std::collections::HashMap;
 use git2::Repository;
 use octocrab::models::pulls::PullRequest;
 use octocrab::params::State;
-use regex::Regex;
 
-use crate::git::{describe, fetch, is_safe_pr, rebase_and_push};
+use crate::git::{describe, fetch, get_owner_repo_name, is_safe_pr, rebase_and_push};
 
 mod git;
 
@@ -17,16 +16,7 @@ async fn main() {
 
     fetch(&mut origin_remote);
 
-    let remote_url = origin_remote.url().unwrap();
-    println!("Origin remote: {}", remote_url);
-
-    let regex = Regex::new(r".*@.*:(.*)/(.*).git").unwrap();
-
-    let captures = regex.captures(remote_url).unwrap();
-
-    let owner = &captures[1];
-    let repo_name = &captures[2];
-    println!("Remote repo: {}/{}", owner, repo_name);
+    let (owner, repo_name) = get_owner_repo_name(&origin_remote);
 
     let mut settings = config::Config::default();
     settings
