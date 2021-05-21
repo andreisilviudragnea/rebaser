@@ -243,6 +243,7 @@ fn with_revert_to_current_branch<F: FnMut() -> bool>(repo: &Repository, mut f: F
 
     let head = repo.head().unwrap();
     println!("Current HEAD is {}", head.name().unwrap());
+    println!();
 
     result
 }
@@ -330,7 +331,6 @@ pub(crate) async fn get_all_my_safe_prs(
     let mut page = pull_request_handler
         .list()
         .state(State::Open)
-        .per_page(1)
         .send()
         .await
         .unwrap();

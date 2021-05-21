@@ -20,7 +20,6 @@ async fn main() {
         all_my_safe_prs.iter().for_each(|pr| {
             changes_propagated =
                 rebase_and_push(pr, &repo, &mut origin_remote) || changes_propagated;
-            println!()
         });
 
         if !changes_propagated {
