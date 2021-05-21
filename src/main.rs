@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use git2::build::CheckoutBuilder;
-use git2::{Error, RebaseOperationType, Remote, Repository};
+use git2::{RebaseOperationType, Remote, Repository};
 use octocrab::models::pulls::PullRequest;
 use octocrab::params::State;
 use regex::Regex;
@@ -11,10 +11,10 @@ use crate::git::{fetch, push};
 mod git;
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
-    let repo = Repository::discover(".")?;
+async fn main() {
+    let repo = Repository::discover(".").unwrap();
 
-    let mut origin_remote = repo.find_remote("origin")?;
+    let mut origin_remote = repo.find_remote("origin").unwrap();
 
     fetch(&mut origin_remote);
 
@@ -95,8 +95,6 @@ async fn main() -> Result<(), Error> {
             break;
         }
     }
-
-    Ok(())
 }
 
 fn rebase(pr: &PullRequest, repo: &Repository, origin_remote: &mut Remote) -> bool {
