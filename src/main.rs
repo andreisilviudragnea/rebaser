@@ -99,24 +99,24 @@ async fn main() {
 
 fn rebase(pr: &PullRequest, repo: &Repository, origin_remote: &mut Remote) -> bool {
     with_revert_to_current_branch(&repo, || {
-        let head_ref = &pr.head.ref_field;
-        let base_ref = &pr.base.ref_field;
-        println!("Rebasing \"{}\" {} <- {}...", pr.title, base_ref, head_ref);
+        let head_refname = &pr.head.ref_field;
+        let base_refname = &pr.base.ref_field;
+        println!(
+            "Rebasing \"{}\" {} <- {}...",
+            pr.title, base_refname, head_refname
+        );
 
-        repo.set_head(&format!("refs/heads/{}", head_ref)).unwrap();
-        let mut checkout_builder = CheckoutBuilder::new();
-        checkout_builder.force();
-        repo.checkout_head(Some(&mut checkout_builder)).unwrap();
-
-        let head = repo.head().unwrap();
-        println!("Current HEAD is {}", head.name().unwrap());
-
-        let reference = repo.resolve_reference_from_short_name(base_ref).unwrap();
+        let head_ref = repo
+            .resolve_reference_from_short_name(head_refname)
+            .unwrap();
+        let base_ref = repo
+            .resolve_reference_from_short_name(base_refname)
+            .unwrap();
 
         let mut rebase = repo
             .rebase(
-                None,
-                Some(&repo.reference_to_annotated_commit(&reference).unwrap()),
+                Some(&repo.reference_to_annotated_commit(&head_ref).unwrap()),
+                Some(&repo.reference_to_annotated_commit(&base_ref).unwrap()),
                 None,
                 None,
             )
@@ -124,7 +124,7 @@ fn rebase(pr: &PullRequest, repo: &Repository, origin_remote: &mut Remote) -> bo
 
         println!("Rebase operations: {}", rebase.len());
 
-        let head_commit = head.peel_to_commit().unwrap();
+        let head_commit = repo.head().unwrap().peel_to_commit().unwrap();
         let signature = head_commit.committer();
 
         loop {
@@ -169,7 +169,7 @@ fn rebase(pr: &PullRequest, repo: &Repository, origin_remote: &mut Remote) -> bo
 
         rebase.finish(None).unwrap();
 
-        if is_safe_branch(repo, head_ref) {
+        if is_safe_branch(repo, head_refname) {
             println!("No changes for \"{}\". Not pushing to remote.", pr.title);
             return false;
         }
@@ -179,7 +179,7 @@ fn rebase(pr: &PullRequest, repo: &Repository, origin_remote: &mut Remote) -> bo
             pr.title
         );
 
-        push(pr, repo, origin_remote, &head_ref)
+        push(pr, repo, origin_remote, &head_refname)
     })
 }
 
@@ -189,6 +189,9 @@ fn with_revert_to_current_branch<F: FnMut() -> bool>(repo: &Repository, mut f: F
     println!("Current HEAD is {}", current_head_name);
 
     let result = f();
+
+    let head = repo.head().unwrap();
+    println!("Current HEAD is {}", head.name().unwrap());
 
     repo.set_head(current_head_name).unwrap();
     let mut checkout_builder = CheckoutBuilder::new();
