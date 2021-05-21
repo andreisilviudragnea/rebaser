@@ -329,7 +329,10 @@ fn fetch(origin_remote: &mut Remote) {
 
     origin_remote
         .fetch(
-            &["+refs/heads/*:refs/remotes/origin/*"],
+            &[format!(
+                "+refs/heads/*:refs/remotes/{}/*",
+                origin_remote.name().unwrap()
+            )],
             Some(&mut fetch_options),
             None,
         )
