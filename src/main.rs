@@ -172,6 +172,11 @@ fn rebase(pr: &PullRequest, repo: &Repository, origin_remote: &mut Remote) -> bo
 
         rebase.finish(None).unwrap();
 
+        if is_safe_branch(repo, head_ref) {
+            println!("No changes for \"{}\". Not pushing to remote.", pr.title);
+            return false;
+        }
+
         println!(
             "Successfully rebased \"{}\". Pushing changes to remote...",
             pr.title
