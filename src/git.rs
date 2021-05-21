@@ -1,11 +1,14 @@
+use std::collections::HashMap;
+use std::env;
+
 use git2::build::CheckoutBuilder;
 use git2::ResetType::Hard;
 use git2::{
     Cred, FetchOptions, PushOptions, RebaseOperationType, Remote, RemoteCallbacks, Repository,
 };
 use octocrab::models::pulls::PullRequest;
+use octocrab::params::State;
 use regex::Regex;
-use std::env;
 
 fn credentials_callback<'a>() -> RemoteCallbacks<'a> {
     let mut callbacks = RemoteCallbacks::new();
@@ -38,7 +41,7 @@ pub(crate) fn fetch(origin_remote: &mut Remote) {
         .unwrap();
 }
 
-pub(crate) fn push(
+fn push(
     pr: &PullRequest,
     repo: &Repository,
     origin_remote: &mut Remote,
@@ -76,7 +79,7 @@ pub(crate) fn push(
     }
 }
 
-pub(crate) fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
+fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
     let head_refname = &pr.head.ref_field;
     let base_refname = &pr.base.ref_field;
     println!(
@@ -244,7 +247,7 @@ fn with_revert_to_current_branch<F: FnMut() -> bool>(repo: &Repository, mut f: F
     result
 }
 
-pub(crate) fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
+fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
     let base_ref = &pr.base.ref_field;
 
     if !is_safe_branch(repo, base_ref) {
@@ -268,7 +271,7 @@ pub(crate) fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
     true
 }
 
-pub(crate) fn describe(pr: &PullRequest, repo: &Repository) {
+fn describe(pr: &PullRequest, repo: &Repository) {
     let head_ref = &pr.head.ref_field;
     let base_ref = &pr.base.ref_field;
 
@@ -285,7 +288,7 @@ pub(crate) fn describe(pr: &PullRequest, repo: &Repository) {
     println!();
 }
 
-pub(crate) fn get_owner_repo_name(origin_remote: &Remote) -> (String, String) {
+fn get_owner_repo_name(origin_remote: &Remote) -> (String, String) {
     let remote_url = origin_remote.url().unwrap();
     println!("Origin remote: {}", remote_url);
 
@@ -299,4 +302,89 @@ pub(crate) fn get_owner_repo_name(origin_remote: &Remote) -> (String, String) {
     println!("Remote repo: {}/{}", owner, repo_name);
 
     (owner.to_owned(), repo_name.to_owned())
+}
+
+pub(crate) async fn get_all_my_safe_prs(
+    repo: &Repository,
+    origin_remote: &Remote<'_>,
+) -> Vec<PullRequest> {
+    let (owner, repo_name) = get_owner_repo_name(&origin_remote);
+
+    let mut settings = config::Config::default();
+    settings
+        .merge(config::Environment::with_prefix("GITHUB"))
+        .unwrap();
+
+    let map = settings.try_into::<HashMap<String, String>>().unwrap();
+    println!("{:?}", map);
+
+    let octocrab = octocrab::OctocrabBuilder::new()
+        .personal_token(map.get("oauth").unwrap().clone())
+        .build()
+        .unwrap();
+
+    let user = octocrab.current().user().await.unwrap();
+
+    let pull_request_handler = octocrab.pulls(owner, repo_name);
+
+    let mut page = pull_request_handler
+        .list()
+        .state(State::Open)
+        .per_page(1)
+        .send()
+        .await
+        .unwrap();
+
+    let mut all_my_open_prs = page
+        .items
+        .into_iter()
+        .filter(|it| it.user == user)
+        .collect::<Vec<PullRequest>>();
+
+    loop {
+        match &page.next {
+            None => break,
+            Some(url) => {
+                page = octocrab
+                    .get_page(&Some(url.to_owned()))
+                    .await
+                    .unwrap()
+                    .unwrap();
+
+                let my_open_prs = page.items.into_iter().filter(|it| it.user == user);
+
+                for item in my_open_prs {
+                    all_my_open_prs.push(item)
+                }
+            }
+        }
+    }
+
+    all_my_open_prs.iter().for_each(|pr| describe(pr, &repo));
+
+    let num_of_my_open_prs = all_my_open_prs.len();
+
+    let safe_prs = all_my_open_prs
+        .into_iter()
+        .filter(|pr| is_safe_pr(&repo, pr))
+        .collect::<Vec<PullRequest>>();
+
+    println!();
+
+    println!(
+        "Going to rebase {}/{} safe pull requests:",
+        safe_prs.len(),
+        num_of_my_open_prs
+    );
+
+    safe_prs.iter().for_each(|pr| {
+        println!(
+            "\"{}\" {} <- {}",
+            pr.title, pr.base.ref_field, pr.head.ref_field
+        );
+    });
+
+    println!();
+
+    safe_prs
 }
