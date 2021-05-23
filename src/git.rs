@@ -377,15 +377,21 @@ fn get_oauth_token(host: &str) -> String {
 
     let github_table = config_table
         .get(host)
-        .expect(format!("{} table missing", host).as_str())
+        .expect(format!("{} table missing from {}", host, filename).as_str())
         .as_table()
-        .expect(format!("Error parsing table {}", host).as_str());
+        .expect(format!("Error parsing table {} from {}", host, filename).as_str());
 
     github_table
         .get("oauth")
-        .expect(format!("Missing oauth key for {}", host).as_str())
+        .expect(format!("Missing oauth key for {} in {}", host, filename).as_str())
         .as_str()
-        .expect(format!("Expected string for oauth key under {}", host).as_str())
+        .expect(
+            format!(
+                "Expected string for oauth key under {} in {}",
+                host, filename
+            )
+            .as_str(),
+        )
         .to_owned()
 }
 
