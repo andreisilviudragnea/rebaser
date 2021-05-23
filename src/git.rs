@@ -310,22 +310,16 @@ pub(crate) async fn get_all_my_safe_prs(
     repo: &Repository,
     origin_remote: &Remote<'_>,
 ) -> Vec<PullRequest> {
-    let mut settings = config::Config::default();
-    settings
-        .merge(config::Environment::with_prefix("GITHUB"))
-        .unwrap();
-
-    let map = settings.try_into::<HashMap<String, String>>().unwrap();
-    println!("{:?}", map);
+    let map = get_settings();
 
     let octocrab = octocrab::OctocrabBuilder::new()
         .personal_token(map.get("oauth").unwrap().clone())
         .build()
         .unwrap();
 
-    let user = octocrab.current().user().await.unwrap();
-
     let all_prs = get_all_prs(repo, origin_remote, octocrab).await;
+
+    let user = octocrab.current().user().await.unwrap();
 
     let my_open_prs = all_prs
         .into_iter()
@@ -357,6 +351,19 @@ pub(crate) async fn get_all_my_safe_prs(
     println!();
 
     my_safe_prs
+}
+
+fn get_settings() -> HashMap<String, String> {
+    let mut settings = config::Config::default();
+    settings
+        .merge(config::Environment::with_prefix("GITHUB"))
+        .unwrap();
+
+    let map = settings.try_into::<HashMap<String, String>>().unwrap();
+
+    println!("{:?}", map);
+
+    map
 }
 
 async fn get_all_prs(
