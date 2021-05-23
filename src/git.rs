@@ -322,7 +322,7 @@ pub(crate) async fn get_all_my_safe_prs(
         .build()
         .unwrap();
 
-    let all_prs = get_all_prs(repo, origin_remote, octocrab).await;
+    let all_prs = get_all_prs(repo, origin_remote, &octocrab).await;
 
     let user = octocrab.current().user().await.unwrap();
 
@@ -374,7 +374,7 @@ fn get_settings() -> HashMap<String, String> {
 async fn get_all_prs(
     repo: &Repository,
     origin_remote: &Remote<'_>,
-    octocrab: Octocrab,
+    octocrab: &Octocrab,
 ) -> Vec<PullRequest> {
     let (owner, repo_name) = get_owner_repo_name(origin_remote);
 
