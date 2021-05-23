@@ -325,7 +325,7 @@ pub(crate) async fn get_all_my_safe_prs(
 
     let user = octocrab.current().user().await.unwrap();
 
-    let all_prs = get_all_prs(&repo, &origin_remote, octocrab).await;
+    let all_prs = get_all_prs(repo, origin_remote, octocrab).await;
 
     let my_open_prs = all_prs
         .into_iter()
@@ -336,7 +336,7 @@ pub(crate) async fn get_all_my_safe_prs(
 
     let my_safe_prs = my_open_prs
         .into_iter()
-        .filter(|pr| is_safe_pr(&repo, pr))
+        .filter(|pr| is_safe_pr(repo, pr))
         .collect::<Vec<PullRequest>>();
 
     println!();
@@ -359,12 +359,12 @@ pub(crate) async fn get_all_my_safe_prs(
     my_safe_prs
 }
 
-async fn get_all_prs<'a, 'b, 'c>(
-    repo: &'a Repository,
-    origin_remote: &'b Remote<'c>,
+async fn get_all_prs(
+    repo: &Repository,
+    origin_remote: &Remote<'_>,
     octocrab: Octocrab,
 ) -> Vec<PullRequest> {
-    let (owner, repo_name) = get_owner_repo_name(&origin_remote);
+    let (owner, repo_name) = get_owner_repo_name(origin_remote);
 
     let pull_request_handler = octocrab.pulls(owner, repo_name);
 
@@ -394,7 +394,7 @@ async fn get_all_prs<'a, 'b, 'c>(
         }
     }
 
-    all_prs.iter().for_each(|pr| describe(pr, &repo));
+    all_prs.iter().for_each(|pr| describe(pr, repo));
 
     all_prs
 }
