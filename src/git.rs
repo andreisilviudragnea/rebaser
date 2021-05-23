@@ -359,9 +359,9 @@ pub(crate) async fn get_all_my_safe_prs(
     my_safe_prs
 }
 
-async fn get_all_prs(
-    repo: &Repository,
-    origin_remote: &Remote<'_>,
+async fn get_all_prs<'a, 'b, 'c>(
+    repo: &'a Repository,
+    origin_remote: &'b Remote<'c>,
     octocrab: Octocrab,
 ) -> Vec<PullRequest> {
     let (owner, repo_name) = get_owner_repo_name(&origin_remote);
