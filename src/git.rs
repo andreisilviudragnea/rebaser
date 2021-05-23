@@ -312,8 +312,13 @@ pub(crate) async fn get_all_my_safe_prs(
 ) -> Vec<PullRequest> {
     let map = get_settings();
 
+    let github_oauth = match map.get("oauth") {
+        None => panic!("Missing GITHUB_OAUTH environment variable"),
+        Some(value) => value,
+    };
+
     let octocrab = octocrab::OctocrabBuilder::new()
-        .personal_token(map.get("oauth").unwrap().clone())
+        .personal_token(github_oauth.clone())
         .build()
         .unwrap();
 
