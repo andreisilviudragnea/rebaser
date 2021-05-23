@@ -44,15 +44,12 @@ pub(crate) fn fetch(origin_remote: &mut Remote) {
         .unwrap();
 }
 
-fn push(
-    pr: &PullRequest,
-    repo: &Repository,
-    origin_remote: &mut Remote,
-    head_ref: &String,
-) -> bool {
+fn push(pr: &PullRequest, repo: &Repository, origin_remote: &mut Remote) -> bool {
     let mut options = PushOptions::new();
 
     options.remote_callbacks(credentials_callback());
+
+    let head_ref = &pr.head.ref_field;
 
     match origin_remote.push(&[format!("+refs/heads/{}", head_ref)], Some(&mut options)) {
         Ok(()) => {
@@ -225,7 +222,7 @@ pub(crate) fn rebase_and_push(
             return result;
         }
 
-        push(pr, repo, origin_remote, &pr.head.ref_field)
+        push(pr, repo, origin_remote)
     })
 }
 
