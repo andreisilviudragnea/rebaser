@@ -1,5 +1,4 @@
-use std::collections::HashMap;
-use std::env;
+use std::{env, fs};
 
 use git2::build::CheckoutBuilder;
 use git2::ResetType::Hard;
@@ -10,6 +9,8 @@ use octocrab::models::pulls::PullRequest;
 use octocrab::params::State;
 use octocrab::Octocrab;
 use regex::Regex;
+use std::env::var;
+use toml::Value;
 
 fn credentials_callback<'a>() -> RemoteCallbacks<'a> {
     let mut callbacks = RemoteCallbacks::new();
@@ -311,14 +312,9 @@ pub(crate) async fn get_all_my_safe_prs(
     repo: &Repository,
     origin_remote: &Remote<'_>,
 ) -> Vec<PullRequest> {
-    let map = get_settings();
-
-    let github_oauth = match map.get("oauth") {
-        None => panic!("Missing GITHUB_OAUTH environment variable"),
-        Some(value) => value,
-    };
-
     let (host, owner, repo_name) = get_owner_repo_name(origin_remote);
+
+    let oauth_token = get_oauth_token(&host);
 
     let octocrab = octocrab::OctocrabBuilder::new()
         .base_url(if host == "github.com" {
@@ -327,7 +323,7 @@ pub(crate) async fn get_all_my_safe_prs(
             format!("https://{}/api/v3", host)
         })
         .unwrap()
-        .personal_token(github_oauth.clone())
+        .personal_token(oauth_token)
         .build()
         .unwrap();
 
@@ -367,17 +363,30 @@ pub(crate) async fn get_all_my_safe_prs(
     my_safe_prs
 }
 
-fn get_settings() -> HashMap<String, String> {
-    let mut settings = config::Config::default();
-    settings
-        .merge(config::Environment::with_prefix("GITHUB"))
-        .unwrap();
+fn get_oauth_token(host: &str) -> String {
+    let filename = format!("{}/.github", var("HOME").unwrap());
 
-    let map = settings.try_into::<HashMap<String, String>>().unwrap();
+    let config = fs::read_to_string(&filename)
+        .expect(format!("File {} is missing", filename).as_str())
+        .parse::<Value>()
+        .expect(format!("Error parsing {}", filename).as_str());
 
-    println!("{:?}", map);
+    let config_table = config
+        .as_table()
+        .expect(format!("Error parsing {}", filename).as_str());
 
-    map
+    let github_table = config_table
+        .get(host)
+        .expect(format!("{} table missing", host).as_str())
+        .as_table()
+        .expect(format!("Error parsing table {}", host).as_str());
+
+    github_table
+        .get("oauth")
+        .expect(format!("Missing oauth key for {}", host).as_str())
+        .as_str()
+        .expect(format!("Expected string for oauth key under {}", host).as_str())
+        .to_owned()
 }
 
 async fn get_all_prs(
