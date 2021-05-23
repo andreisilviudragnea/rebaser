@@ -3,7 +3,8 @@ use std::{env, fs};
 use git2::build::CheckoutBuilder;
 use git2::ResetType::Hard;
 use git2::{
-    Cred, FetchOptions, PushOptions, RebaseOperationType, Remote, RemoteCallbacks, Repository,
+    Cred, FetchOptions, PushOptions, RebaseOperationType, Reference, Remote, RemoteCallbacks,
+    Repository,
 };
 use octocrab::models::pulls::PullRequest;
 use octocrab::params::State;
@@ -152,7 +153,7 @@ fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
 
     rebase.finish(None).unwrap();
 
-    if is_safe_branch(repo, head_refname) {
+    if is_safe_branch(repo, &head_ref, head_refname) {
         println!("No changes for \"{}\". Not pushing to remote.", pr.title);
         return false;
     }
@@ -165,11 +166,14 @@ fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
     true
 }
 
-fn is_safe_branch(repo: &Repository, refname: &str) -> bool {
+fn is_safe_branch(repo: &Repository, reference: &Reference, refname: &str) -> bool {
     let origin_refname = &format!("origin/{}", refname);
+    let origin = repo
+        .resolve_reference_from_short_name(origin_refname)
+        .unwrap();
 
     let (number_of_commits_ahead, number_of_commits_behind) =
-        compare_refs(repo, refname, origin_refname);
+        compare_refs(repo, &reference, &origin);
 
     if number_of_commits_ahead > 0 {
         println!(
@@ -190,12 +194,9 @@ fn is_safe_branch(repo: &Repository, refname: &str) -> bool {
     true
 }
 
-fn compare_refs(repo: &Repository, head_ref: &str, base_ref: &str) -> (usize, usize) {
-    let head_reference = repo.resolve_reference_from_short_name(head_ref).unwrap();
-    let head_commit_name = head_reference.name().unwrap();
-
-    let base_reference = repo.resolve_reference_from_short_name(base_ref).unwrap();
-    let base_commit_name = base_reference.name().unwrap();
+fn compare_refs(repo: &Repository, head: &Reference, base: &Reference) -> (usize, usize) {
+    let head_commit_name = head.name().unwrap();
+    let base_commit_name = base.name().unwrap();
 
     (
         log_count(repo, base_commit_name, head_commit_name),
@@ -252,8 +253,18 @@ fn with_revert_to_current_branch<F: FnMut() -> bool>(repo: &Repository, mut f: F
 
 fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
     let base_ref = &pr.base.ref_field;
+    let base = match repo.resolve_reference_from_short_name(base_ref) {
+        Ok(reference) => reference,
+        Err(e) => {
+            println!(
+                "Error resolving reference from shortname for {}: {}",
+                base_ref, e
+            );
+            return false;
+        }
+    };
 
-    if !is_safe_branch(repo, base_ref) {
+    if !is_safe_branch(repo, &base, base_ref) {
         println!(
             "Pr \"{}\" is not safe because base ref \"{}\" is not safe",
             pr.title, base_ref
@@ -262,8 +273,18 @@ fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
     }
 
     let head_ref = &pr.head.ref_field;
+    let head = match repo.resolve_reference_from_short_name(head_ref) {
+        Ok(reference) => reference,
+        Err(e) => {
+            println!(
+                "Error resolving reference from shortname for {}: {}",
+                head_ref, e
+            );
+            return false;
+        }
+    };
 
-    if !is_safe_branch(repo, head_ref) {
+    if !is_safe_branch(repo, &head, head_ref) {
         println!(
             "Pr \"{}\" is not safe because head ref \"{}\" is not safe",
             pr.title, head_ref
@@ -271,17 +292,9 @@ fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
         return false;
     }
 
-    true
-}
-
-fn describe(pr: &PullRequest, repo: &Repository) {
-    let head_ref = &pr.head.ref_field;
-    let base_ref = &pr.base.ref_field;
-
     println!("\"{}\" {} <- {}", pr.title, base_ref, head_ref);
 
-    let (number_of_commits_ahead, number_of_commits_behind) =
-        compare_refs(repo, head_ref, base_ref);
+    let (number_of_commits_ahead, number_of_commits_behind) = compare_refs(repo, &head, &base);
 
     println!(
         "\"{}\" is {} commits ahead, {} commits behind \"{}\"",
@@ -289,6 +302,8 @@ fn describe(pr: &PullRequest, repo: &Repository) {
     );
 
     println!();
+
+    true
 }
 
 fn get_owner_repo_name(origin_remote: &Remote) -> (String, String, String) {
@@ -327,7 +342,7 @@ pub(crate) async fn get_all_my_safe_prs(
         .build()
         .unwrap();
 
-    let all_prs = get_all_prs(repo, &owner, &repo_name, &octocrab).await;
+    let all_prs = get_all_prs(&owner, &repo_name, &octocrab).await;
 
     let user = octocrab.current().user().await.unwrap();
 
@@ -395,12 +410,7 @@ fn get_oauth_token(host: &str) -> String {
         .to_owned()
 }
 
-async fn get_all_prs(
-    repo: &Repository,
-    owner: &str,
-    repo_name: &str,
-    octocrab: &Octocrab,
-) -> Vec<PullRequest> {
+async fn get_all_prs(owner: &str, repo_name: &str, octocrab: &Octocrab) -> Vec<PullRequest> {
     let pull_request_handler = octocrab.pulls(owner, repo_name);
 
     let mut page = pull_request_handler
@@ -428,8 +438,6 @@ async fn get_all_prs(
             }
         }
     }
-
-    all_prs.iter().for_each(|pr| describe(pr, repo));
 
     all_prs
 }
