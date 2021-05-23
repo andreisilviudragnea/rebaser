@@ -290,20 +290,21 @@ fn describe(pr: &PullRequest, repo: &Repository) {
     println!();
 }
 
-fn get_owner_repo_name(origin_remote: &Remote) -> (String, String) {
+fn get_owner_repo_name(origin_remote: &Remote) -> (String, String, String) {
     let remote_url = origin_remote.url().unwrap();
     println!("Origin remote: {}", remote_url);
 
-    let regex = Regex::new(r".*@.*:(.*)/(.*).git").unwrap();
+    let regex = Regex::new(r".*@(.*):(.*)/(.*).git").unwrap();
 
     let captures = regex.captures(remote_url).unwrap();
 
-    let owner = &captures[1];
-    let repo_name = &captures[2];
+    let host = &captures[1];
+    let owner = &captures[2];
+    let repo_name = &captures[3];
 
-    println!("Remote repo: {}/{}", owner, repo_name);
+    println!("{}:{}/{}", host, owner, repo_name);
 
-    (owner.to_owned(), repo_name.to_owned())
+    (host.to_owned(), owner.to_owned(), repo_name.to_owned())
 }
 
 pub(crate) async fn get_all_my_safe_prs(
@@ -317,12 +318,20 @@ pub(crate) async fn get_all_my_safe_prs(
         Some(value) => value,
     };
 
+    let (host, owner, repo_name) = get_owner_repo_name(origin_remote);
+
     let octocrab = octocrab::OctocrabBuilder::new()
+        .base_url(if host == "github.com" {
+            "https://api.github.com".to_string()
+        } else {
+            format!("https://{}/api/v3", host)
+        })
+        .unwrap()
         .personal_token(github_oauth.clone())
         .build()
         .unwrap();
 
-    let all_prs = get_all_prs(repo, origin_remote, &octocrab).await;
+    let all_prs = get_all_prs(repo, &owner, &repo_name, &octocrab).await;
 
     let user = octocrab.current().user().await.unwrap();
 
@@ -373,11 +382,10 @@ fn get_settings() -> HashMap<String, String> {
 
 async fn get_all_prs(
     repo: &Repository,
-    origin_remote: &Remote<'_>,
+    owner: &str,
+    repo_name: &str,
     octocrab: &Octocrab,
 ) -> Vec<PullRequest> {
-    let (owner, repo_name) = get_owner_repo_name(origin_remote);
-
     let pull_request_handler = octocrab.pulls(owner, repo_name);
 
     let mut page = pull_request_handler
