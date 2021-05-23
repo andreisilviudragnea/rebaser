@@ -8,6 +8,7 @@ use git2::{
 };
 use octocrab::models::pulls::PullRequest;
 use octocrab::params::State;
+use octocrab::Octocrab;
 use regex::Regex;
 
 fn credentials_callback<'a>() -> RemoteCallbacks<'a> {
@@ -309,8 +310,6 @@ pub(crate) async fn get_all_my_safe_prs(
     repo: &Repository,
     origin_remote: &Remote<'_>,
 ) -> Vec<PullRequest> {
-    let (owner, repo_name) = get_owner_repo_name(&origin_remote);
-
     let mut settings = config::Config::default();
     settings
         .merge(config::Environment::with_prefix("GITHUB"))
@@ -326,6 +325,47 @@ pub(crate) async fn get_all_my_safe_prs(
 
     let user = octocrab.current().user().await.unwrap();
 
+    let all_prs = get_all_prs(&repo, &origin_remote, octocrab).await;
+
+    let my_open_prs = all_prs
+        .into_iter()
+        .filter(|pr| pr.user == user)
+        .collect::<Vec<PullRequest>>();
+
+    let num_of_my_open_prs = my_open_prs.len();
+
+    let my_safe_prs = my_open_prs
+        .into_iter()
+        .filter(|pr| is_safe_pr(&repo, pr))
+        .collect::<Vec<PullRequest>>();
+
+    println!();
+
+    println!(
+        "Going to rebase {}/{} safe pull requests:",
+        my_safe_prs.len(),
+        num_of_my_open_prs
+    );
+
+    my_safe_prs.iter().for_each(|pr| {
+        println!(
+            "\"{}\" {} <- {}",
+            pr.title, pr.base.ref_field, pr.head.ref_field
+        );
+    });
+
+    println!();
+
+    my_safe_prs
+}
+
+async fn get_all_prs(
+    repo: &Repository,
+    origin_remote: &Remote<'_>,
+    octocrab: Octocrab,
+) -> Vec<PullRequest> {
+    let (owner, repo_name) = get_owner_repo_name(&origin_remote);
+
     let pull_request_handler = octocrab.pulls(owner, repo_name);
 
     let mut page = pull_request_handler
@@ -335,11 +375,7 @@ pub(crate) async fn get_all_my_safe_prs(
         .await
         .unwrap();
 
-    let mut all_my_open_prs = page
-        .items
-        .into_iter()
-        .filter(|it| it.user == user)
-        .collect::<Vec<PullRequest>>();
+    let mut all_prs = page.items.into_iter().collect::<Vec<PullRequest>>();
 
     loop {
         match &page.next {
@@ -351,40 +387,14 @@ pub(crate) async fn get_all_my_safe_prs(
                     .unwrap()
                     .unwrap();
 
-                let my_open_prs = page.items.into_iter().filter(|it| it.user == user);
-
-                for item in my_open_prs {
-                    all_my_open_prs.push(item)
+                for item in page.items {
+                    all_prs.push(item)
                 }
             }
         }
     }
 
-    all_my_open_prs.iter().for_each(|pr| describe(pr, &repo));
+    all_prs.iter().for_each(|pr| describe(pr, &repo));
 
-    let num_of_my_open_prs = all_my_open_prs.len();
-
-    let safe_prs = all_my_open_prs
-        .into_iter()
-        .filter(|pr| is_safe_pr(&repo, pr))
-        .collect::<Vec<PullRequest>>();
-
-    println!();
-
-    println!(
-        "Going to rebase {}/{} safe pull requests:",
-        safe_prs.len(),
-        num_of_my_open_prs
-    );
-
-    safe_prs.iter().for_each(|pr| {
-        println!(
-            "\"{}\" {} <- {}",
-            pr.title, pr.base.ref_field, pr.head.ref_field
-        );
-    });
-
-    println!();
-
-    safe_prs
+    all_prs
 }
