@@ -301,7 +301,7 @@ fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
     true
 }
 
-fn get_owner_repo_name(origin_remote: &Remote) -> (String, String, String) {
+fn get_host_owner_repo_name(origin_remote: &Remote) -> (String, String, String) {
     let remote_url = origin_remote.url().unwrap();
     debug!("Origin remote: {}", remote_url);
 
@@ -322,7 +322,7 @@ pub(crate) async fn get_all_my_safe_prs(
     repo: &Repository,
     origin_remote: &Remote<'_>,
 ) -> Vec<PullRequest> {
-    let (host, owner, repo_name) = get_owner_repo_name(origin_remote);
+    let (host, owner, repo_name) = get_host_owner_repo_name(origin_remote);
 
     let oauth_token = get_oauth_token(&host);
 
