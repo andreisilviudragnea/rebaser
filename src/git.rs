@@ -6,7 +6,7 @@ use git2::{
     Cred, FetchOptions, PushOptions, RebaseOperationType, Reference, Remote, RemoteCallbacks,
     Repository,
 };
-use log::info;
+use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
 use octocrab::params::State;
 use octocrab::Octocrab;
@@ -58,7 +58,7 @@ fn push(pr: &PullRequest, repo: &Repository, origin_remote: &mut Remote) -> bool
             true
         }
         Err(e) => {
-            println!(
+            error!(
                 "Push to remote failed for \"{}\": {}. Resetting...",
                 pr.title, e
             );
@@ -73,7 +73,7 @@ fn push(pr: &PullRequest, repo: &Repository, origin_remote: &mut Remote) -> bool
 
             repo.reset(origin_commit.as_object(), Hard, None).unwrap();
 
-            println!("Successfully reset.");
+            info!("Successfully reset.");
 
             false
         }
@@ -83,7 +83,7 @@ fn push(pr: &PullRequest, repo: &Repository, origin_remote: &mut Remote) -> bool
 fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
     let head_refname = &pr.head.ref_field;
     let base_refname = &pr.base.ref_field;
-    println!(
+    info!(
         "Rebasing \"{}\" {} <- {}...",
         pr.title, base_refname, head_refname
     );
@@ -104,7 +104,7 @@ fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
         )
         .unwrap();
 
-    println!("Rebase operations: {}", rebase.len());
+    debug!("Rebase operations: {}", rebase.len());
 
     let head_commit = repo.head().unwrap().peel_to_commit().unwrap();
     let signature = head_commit.committer();
@@ -115,10 +115,10 @@ fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
                 Ok(operation) => match operation.kind().unwrap() {
                     RebaseOperationType::Pick => match rebase.commit(None, &signature, None) {
                         Ok(oid) => {
-                            info!("Successfully committed {}", oid)
+                            debug!("Successfully committed {}", oid)
                         }
                         Err(e) => {
-                            println!("Error committing for {}: {}. Aborting...", pr.title, e);
+                            error!("Error committing for {}: {}. Aborting...", pr.title, e);
                             rebase.abort().unwrap();
                             return false;
                         }
@@ -140,7 +140,7 @@ fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
                     }
                 },
                 Err(e) => {
-                    println!("Error rebasing {}: {}. Aborting...", pr.title, e);
+                    error!("Error rebasing {}: {}. Aborting...", pr.title, e);
                     rebase.abort().unwrap();
                     return false;
                 }
@@ -152,11 +152,11 @@ fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
     rebase.finish(None).unwrap();
 
     if is_safe_branch(repo, &head_ref, head_refname) {
-        println!("No changes for \"{}\". Not pushing to remote.", pr.title);
+        info!("No changes for \"{}\". Not pushing to remote.", pr.title);
         return false;
     }
 
-    println!(
+    info!(
         "Successfully rebased \"{}\". Pushing changes to remote...",
         pr.title
     );
@@ -174,7 +174,7 @@ fn is_safe_branch(repo: &Repository, reference: &Reference, refname: &str) -> bo
         compare_refs(repo, &reference, &origin);
 
     if number_of_commits_ahead > 0 {
-        println!(
+        debug!(
             "Branch \"{}\" is unsafe because it is {} commits ahead \"{}\"",
             refname, number_of_commits_ahead, origin_refname
         );
@@ -182,7 +182,7 @@ fn is_safe_branch(repo: &Repository, reference: &Reference, refname: &str) -> bo
     }
 
     if number_of_commits_behind > 0 {
-        println!(
+        debug!(
             "Branch \"{}\" is unsafe because it is {} commits behind \"{}\"",
             refname, number_of_commits_behind, origin_refname
         );
@@ -230,12 +230,12 @@ pub(crate) fn rebase_and_push(
 fn with_revert_to_current_branch<F: FnMut() -> bool>(repo: &Repository, mut f: F) -> bool {
     let current_head = repo.head().unwrap();
     let current_head_name = current_head.name().unwrap();
-    println!("Current HEAD is {}", current_head_name);
+    debug!("Current HEAD is {}", current_head_name);
 
     let result = f();
 
     let head = repo.head().unwrap();
-    println!("Current HEAD is {}", head.name().unwrap());
+    debug!("Current HEAD is {}", head.name().unwrap());
 
     repo.set_head(current_head_name).unwrap();
     let mut checkout_builder = CheckoutBuilder::new();
@@ -243,8 +243,7 @@ fn with_revert_to_current_branch<F: FnMut() -> bool>(repo: &Repository, mut f: F
     repo.checkout_head(Some(&mut checkout_builder)).unwrap();
 
     let head = repo.head().unwrap();
-    println!("Current HEAD is {}", head.name().unwrap());
-    println!();
+    debug!("Current HEAD is {}", head.name().unwrap());
 
     result
 }
@@ -254,7 +253,7 @@ fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
     let base = match repo.resolve_reference_from_short_name(base_ref) {
         Ok(reference) => reference,
         Err(e) => {
-            println!(
+            error!(
                 "Error resolving reference from shortname for {}: {}",
                 base_ref, e
             );
@@ -263,7 +262,7 @@ fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
     };
 
     if !is_safe_branch(repo, &base, base_ref) {
-        println!(
+        info!(
             "Pr \"{}\" is not safe because base ref \"{}\" is not safe",
             pr.title, base_ref
         );
@@ -274,7 +273,7 @@ fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
     let head = match repo.resolve_reference_from_short_name(head_ref) {
         Ok(reference) => reference,
         Err(e) => {
-            println!(
+            error!(
                 "Error resolving reference from shortname for {}: {}",
                 head_ref, e
             );
@@ -283,30 +282,28 @@ fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
     };
 
     if !is_safe_branch(repo, &head, head_ref) {
-        println!(
+        info!(
             "Pr \"{}\" is not safe because head ref \"{}\" is not safe",
             pr.title, head_ref
         );
         return false;
     }
 
-    println!("\"{}\" {} <- {}", pr.title, base_ref, head_ref);
+    info!("\"{}\" {} <- {}", pr.title, base_ref, head_ref);
 
     let (number_of_commits_ahead, number_of_commits_behind) = compare_refs(repo, &head, &base);
 
-    println!(
+    info!(
         "\"{}\" is {} commits ahead, {} commits behind \"{}\"",
         head_ref, number_of_commits_ahead, number_of_commits_behind, base_ref
     );
-
-    println!();
 
     true
 }
 
 fn get_owner_repo_name(origin_remote: &Remote) -> (String, String, String) {
     let remote_url = origin_remote.url().unwrap();
-    println!("Origin remote: {}", remote_url);
+    info!("Origin remote: {}", remote_url);
 
     let regex = Regex::new(r".*@(.*):(.*)/(.*).git").unwrap();
 
@@ -316,7 +313,7 @@ fn get_owner_repo_name(origin_remote: &Remote) -> (String, String, String) {
     let owner = &captures[2];
     let repo_name = &captures[3];
 
-    println!("{}:{}/{}", host, owner, repo_name);
+    debug!("{}:{}/{}", host, owner, repo_name);
 
     (host.to_owned(), owner.to_owned(), repo_name.to_owned())
 }
@@ -356,22 +353,18 @@ pub(crate) async fn get_all_my_safe_prs(
         .filter(|pr| is_safe_pr(repo, pr))
         .collect::<Vec<PullRequest>>();
 
-    println!();
-
-    println!(
+    info!(
         "Going to rebase {}/{} safe pull requests:",
         my_safe_prs.len(),
         num_of_my_open_prs
     );
 
     my_safe_prs.iter().for_each(|pr| {
-        println!(
+        info!(
             "\"{}\" {} <- {}",
             pr.title, pr.base.ref_field, pr.head.ref_field
         );
     });
-
-    println!();
 
     my_safe_prs
 }
