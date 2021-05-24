@@ -6,6 +6,8 @@ mod git;
 
 #[tokio::main]
 async fn main() {
+    env_logger::init();
+
     let repo = Repository::discover(".").unwrap();
 
     let mut origin_remote = repo.find_remote("origin").unwrap();

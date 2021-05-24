@@ -6,6 +6,7 @@ use git2::{
     Cred, FetchOptions, PushOptions, RebaseOperationType, Reference, Remote, RemoteCallbacks,
     Repository,
 };
+use log::info;
 use octocrab::models::pulls::PullRequest;
 use octocrab::params::State;
 use octocrab::Octocrab;
@@ -53,7 +54,7 @@ fn push(pr: &PullRequest, repo: &Repository, origin_remote: &mut Remote) -> bool
 
     match origin_remote.push(&[format!("+refs/heads/{}", head_ref)], Some(&mut options)) {
         Ok(()) => {
-            println!("Successfully pushed changes to remote for \"{}\"", pr.title);
+            info!("Successfully pushed changes to remote for \"{}\"", pr.title);
             true
         }
         Err(e) => {
@@ -114,7 +115,7 @@ fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
                 Ok(operation) => match operation.kind().unwrap() {
                     RebaseOperationType::Pick => match rebase.commit(None, &signature, None) {
                         Ok(oid) => {
-                            println!("Successfully committed {}", oid)
+                            info!("Successfully committed {}", oid)
                         }
                         Err(e) => {
                             println!("Error committing for {}: {}. Aborting...", pr.title, e);
