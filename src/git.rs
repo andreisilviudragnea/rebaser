@@ -332,7 +332,7 @@ pub(crate) async fn get_all_my_safe_prs(
         .base_url(if host == "github.com" {
             "https://api.github.com".to_string()
         } else {
-            format!("https://{}/api/v3", host)
+            format!("https://{}/api/v3/", host)
         })
         .unwrap()
         .personal_token(oauth_token)
