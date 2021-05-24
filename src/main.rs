@@ -1,12 +1,17 @@
 use git2::Repository;
 
 use crate::git::{fetch, get_all_my_safe_prs, rebase_and_push};
+use log::LevelFilter;
+use simple_logger::SimpleLogger;
 
 mod git;
 
 #[tokio::main]
 async fn main() {
-    env_logger::init();
+    SimpleLogger::new()
+        .with_level(LevelFilter::Info)
+        .init()
+        .unwrap();
 
     let repo = Repository::discover(".").unwrap();
 
