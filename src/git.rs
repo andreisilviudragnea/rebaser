@@ -262,7 +262,7 @@ fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
     };
 
     if !is_safe_branch(repo, &base, base_ref) {
-        info!(
+        debug!(
             "Pr \"{}\" is not safe because base ref \"{}\" is not safe",
             pr.title, base_ref
         );
@@ -282,18 +282,18 @@ fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
     };
 
     if !is_safe_branch(repo, &head, head_ref) {
-        info!(
+        debug!(
             "Pr \"{}\" is not safe because head ref \"{}\" is not safe",
             pr.title, head_ref
         );
         return false;
     }
 
-    info!("\"{}\" {} <- {}", pr.title, base_ref, head_ref);
+    debug!("\"{}\" {} <- {}", pr.title, base_ref, head_ref);
 
     let (number_of_commits_ahead, number_of_commits_behind) = compare_refs(repo, &head, &base);
 
-    info!(
+    debug!(
         "\"{}\" is {} commits ahead, {} commits behind \"{}\"",
         head_ref, number_of_commits_ahead, number_of_commits_behind, base_ref
     );
@@ -303,7 +303,7 @@ fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
 
 fn get_owner_repo_name(origin_remote: &Remote) -> (String, String, String) {
     let remote_url = origin_remote.url().unwrap();
-    info!("Origin remote: {}", remote_url);
+    debug!("Origin remote: {}", remote_url);
 
     let regex = Regex::new(r".*@(.*):(.*)/(.*).git").unwrap();
 
