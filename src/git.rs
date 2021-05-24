@@ -9,7 +9,7 @@ use git2::{
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
 use octocrab::params::State;
-use octocrab::Octocrab;
+use octocrab::{Octocrab, OctocrabBuilder};
 use regex::Regex;
 use std::env::var;
 use toml::Value;
@@ -324,18 +324,7 @@ pub(crate) async fn get_all_my_safe_prs(
 ) -> Vec<PullRequest> {
     let (host, owner, repo_name) = get_host_owner_repo_name(origin_remote);
 
-    let oauth_token = get_oauth_token(&host);
-
-    let octocrab = octocrab::OctocrabBuilder::new()
-        .base_url(if host == "github.com" {
-            "https://api.github.com".to_string()
-        } else {
-            format!("https://{}/api/v3/", host)
-        })
-        .unwrap()
-        .personal_token(oauth_token)
-        .build()
-        .unwrap();
+    let octocrab = init_octocrab(&host);
 
     let all_prs = get_all_prs(&owner, &repo_name, &octocrab).await;
 
@@ -367,6 +356,21 @@ pub(crate) async fn get_all_my_safe_prs(
     });
 
     my_safe_prs
+}
+
+fn init_octocrab(host: &String) -> Octocrab {
+    let oauth_token = get_oauth_token(&host);
+
+    OctocrabBuilder::new()
+        .base_url(if host == "github.com" {
+            "https://api.github.com".to_string()
+        } else {
+            format!("https://{}/api/v3/", host)
+        })
+        .unwrap()
+        .personal_token(oauth_token)
+        .build()
+        .unwrap()
 }
 
 fn get_oauth_token(host: &str) -> String {
