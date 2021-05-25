@@ -363,7 +363,7 @@ fn init_octocrab(host: &String) -> Octocrab {
 
     OctocrabBuilder::new()
         .base_url(if host == "github.com" {
-            "https://api.github.com".to_string()
+            "https://api.github.com/".to_string()
         } else {
             format!("https://{}/api/v3/", host)
         })
