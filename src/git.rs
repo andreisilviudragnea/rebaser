@@ -1,6 +1,5 @@
 use std::{env, fs};
 
-use git2::build::CheckoutBuilder;
 use git2::ResetType::Hard;
 use git2::{
     Cred, FetchOptions, ObjectType, PushOptions, RebaseOperationType, Reference, Remote,
@@ -216,23 +215,21 @@ pub(crate) fn rebase_and_push(
     repo: &Repository,
     origin_remote: &mut Remote,
 ) -> bool {
-    with_revert_to_current_branch(&repo, || {
-        let result = rebase(pr, repo);
+    let result = rebase(pr, repo);
 
-        if !result {
-            return result;
-        }
+    if !result {
+        return result;
+    }
 
-        push(pr, repo, origin_remote)
-    })
+    push(pr, repo, origin_remote)
 }
 
-fn with_revert_to_current_branch<F: FnMut() -> bool>(repo: &Repository, mut f: F) -> bool {
+pub(crate) fn with_revert_to_current_branch<F: FnMut() -> ()>(repo: &Repository, mut f: F) {
     let current_head = repo.head().unwrap();
     let current_head_name = current_head.name().unwrap();
     debug!("Current HEAD is {}", current_head_name);
 
-    let result = f();
+    f();
 
     let head = repo.head().unwrap();
     debug!("Current HEAD is {}", head.name().unwrap());
@@ -243,8 +240,6 @@ fn with_revert_to_current_branch<F: FnMut() -> bool>(repo: &Repository, mut f: F
 
     let head = repo.head().unwrap();
     debug!("Current HEAD is {}", head.name().unwrap());
-
-    result
 }
 
 fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
