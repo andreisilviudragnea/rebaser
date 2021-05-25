@@ -3,8 +3,8 @@ use std::{env, fs};
 use git2::build::CheckoutBuilder;
 use git2::ResetType::Hard;
 use git2::{
-    Cred, FetchOptions, PushOptions, RebaseOperationType, Reference, Remote, RemoteCallbacks,
-    Repository,
+    Cred, FetchOptions, ObjectType, PushOptions, RebaseOperationType, Reference, Remote,
+    RemoteCallbacks, Repository,
 };
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
@@ -237,10 +237,9 @@ fn with_revert_to_current_branch<F: FnMut() -> bool>(repo: &Repository, mut f: F
     let head = repo.head().unwrap();
     debug!("Current HEAD is {}", head.name().unwrap());
 
+    repo.checkout_tree(&current_head.peel(ObjectType::Tree).unwrap(), None)
+        .unwrap();
     repo.set_head(current_head_name).unwrap();
-    let mut checkout_builder = CheckoutBuilder::new();
-    checkout_builder.force();
-    repo.checkout_head(Some(&mut checkout_builder)).unwrap();
 
     let head = repo.head().unwrap();
     debug!("Current HEAD is {}", head.name().unwrap());
