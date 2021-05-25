@@ -430,3 +430,42 @@ async fn get_all_prs(owner: &str, repo_name: &str, octocrab: &Octocrab) -> Vec<P
 
     all_prs
 }
+
+pub(crate) fn fast_forward_master(repo: &Repository) {
+    let master_reference = repo.resolve_reference_from_short_name("master").unwrap();
+
+    let mut origin_master_reference = repo
+        .resolve_reference_from_short_name("origin/master")
+        .unwrap();
+
+    let origin_master_annotated_commit = repo
+        .reference_to_annotated_commit(&origin_master_reference)
+        .unwrap();
+
+    let (merge_analysis, _) = repo
+        .merge_analysis_for_ref(&master_reference, &[&origin_master_annotated_commit])
+        .unwrap();
+
+    if merge_analysis.is_up_to_date() {
+        return;
+    }
+
+    if !merge_analysis.is_fast_forward() {
+        panic!("Unexpected merge_analysis={:?}", merge_analysis);
+    }
+
+    info!("Fast-forwarded master");
+
+    repo.checkout_tree(
+        &origin_master_reference.peel(ObjectType::Tree).unwrap(),
+        None,
+    )
+    .unwrap();
+
+    origin_master_reference
+        .set_target(
+            origin_master_reference.target_peel().unwrap(),
+            "Fast forward master",
+        )
+        .unwrap();
+}

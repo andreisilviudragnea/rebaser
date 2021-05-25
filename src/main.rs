@@ -1,6 +1,8 @@
 use git2::Repository;
 
-use crate::git::{fetch, get_all_my_safe_prs, rebase_and_push, with_revert_to_current_branch};
+use crate::git::{
+    fast_forward_master, fetch, get_all_my_safe_prs, rebase_and_push, with_revert_to_current_branch,
+};
 use log::LevelFilter;
 use simple_logger::SimpleLogger;
 
@@ -9,7 +11,7 @@ mod git;
 #[tokio::main]
 async fn main() {
     SimpleLogger::new()
-        .with_level(LevelFilter::Debug)
+        .with_level(LevelFilter::Info)
         .init()
         .unwrap();
 
@@ -18,6 +20,8 @@ async fn main() {
     let mut origin_remote = repo.find_remote("origin").unwrap();
 
     fetch(&mut origin_remote);
+
+    fast_forward_master(&repo);
 
     let all_my_safe_prs = get_all_my_safe_prs(&repo, &origin_remote).await;
 
