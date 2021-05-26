@@ -1,3 +1,4 @@
+use std::env::var;
 use std::{env, fs};
 
 use git2::ResetType::Hard;
@@ -10,7 +11,6 @@ use octocrab::models::pulls::PullRequest;
 use octocrab::params::State;
 use octocrab::{Octocrab, OctocrabBuilder};
 use regex::Regex;
-use std::env::var;
 use toml::Value;
 
 fn credentials_callback<'a>() -> RemoteCallbacks<'a> {
@@ -432,9 +432,9 @@ async fn get_all_prs(owner: &str, repo_name: &str, octocrab: &Octocrab) -> Vec<P
 }
 
 pub(crate) fn fast_forward_master(repo: &Repository) {
-    let master_reference = repo.resolve_reference_from_short_name("master").unwrap();
+    let mut master_reference = repo.resolve_reference_from_short_name("master").unwrap();
 
-    let mut origin_master_reference = repo
+    let origin_master_reference = repo
         .resolve_reference_from_short_name("origin/master")
         .unwrap();
 
@@ -456,15 +456,16 @@ pub(crate) fn fast_forward_master(repo: &Repository) {
 
     info!("Fast-forwarded master");
 
-    repo.checkout_tree(
-        &origin_master_reference.peel(ObjectType::Tree).unwrap(),
-        None,
-    )
-    .unwrap();
+    let origin_tree = origin_master_reference.peel(ObjectType::Tree).unwrap();
 
-    origin_master_reference
+    repo.checkout_tree(&origin_tree, None).unwrap();
+
+    master_reference
         .set_target(
-            origin_master_reference.target_peel().unwrap(),
+            origin_master_reference
+                .peel(ObjectType::Commit)
+                .unwrap()
+                .id(),
             "Fast forward master",
         )
         .unwrap();
