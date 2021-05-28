@@ -1,10 +1,10 @@
 use git2::Repository;
+use log::{error, LevelFilter};
+use simple_logger::SimpleLogger;
 
 use crate::git::{
     fast_forward_master, fetch, get_all_my_safe_prs, rebase_and_push, with_revert_to_current_branch,
 };
-use log::LevelFilter;
-use simple_logger::SimpleLogger;
 
 mod git;
 
@@ -17,7 +17,19 @@ async fn main() {
 
     let repo = Repository::discover(".").unwrap();
 
-    let mut origin_remote = repo.find_remote("origin").unwrap();
+    let remotes_array = repo.remotes().unwrap();
+
+    let remotes = remotes_array
+        .iter()
+        .map(|it| it.unwrap())
+        .collect::<Vec<&str>>();
+
+    if remotes.len() > 1 {
+        error!("Multiple remotes not supported yet.");
+        return;
+    }
+
+    let mut origin_remote = repo.find_remote(remotes[0]).unwrap();
 
     fetch(&mut origin_remote);
 
