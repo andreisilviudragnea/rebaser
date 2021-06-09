@@ -108,43 +108,40 @@ fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
     let head_commit = repo.head().unwrap().peel_to_commit().unwrap();
     let signature = head_commit.committer();
 
-    loop {
-        match rebase.next() {
-            Some(op) => match op {
-                Ok(operation) => match operation.kind().unwrap() {
-                    RebaseOperationType::Pick => match rebase.commit(None, &signature, None) {
-                        Ok(oid) => {
-                            debug!("Successfully committed {}", oid)
-                        }
-                        Err(e) => {
-                            error!("Error committing for {}: {}. Aborting...", pr.title, e);
-                            rebase.abort().unwrap();
-                            return false;
-                        }
-                    },
-                    RebaseOperationType::Reword => {
-                        panic!("Reword encountered");
+    while let Some(op) = rebase.next() {
+        match op {
+            Ok(operation) => match operation.kind().unwrap() {
+                RebaseOperationType::Pick => match rebase.commit(None, &signature, None) {
+                    Ok(oid) => {
+                        debug!("Successfully committed {}", oid)
                     }
-                    RebaseOperationType::Edit => {
-                        panic!("Edit encountered");
-                    }
-                    RebaseOperationType::Squash => {
-                        panic!("Squash encountered");
-                    }
-                    RebaseOperationType::Fixup => {
-                        panic!("Fixup encountered");
-                    }
-                    RebaseOperationType::Exec => {
-                        panic!("Exec encountered");
+                    Err(e) => {
+                        error!("Error committing for {}: {}. Aborting...", pr.title, e);
+                        rebase.abort().unwrap();
+                        return false;
                     }
                 },
-                Err(e) => {
-                    error!("Error rebasing {}: {}. Aborting...", pr.title, e);
-                    rebase.abort().unwrap();
-                    return false;
+                RebaseOperationType::Reword => {
+                    panic!("Reword encountered");
+                }
+                RebaseOperationType::Edit => {
+                    panic!("Edit encountered");
+                }
+                RebaseOperationType::Squash => {
+                    panic!("Squash encountered");
+                }
+                RebaseOperationType::Fixup => {
+                    panic!("Fixup encountered");
+                }
+                RebaseOperationType::Exec => {
+                    panic!("Exec encountered");
                 }
             },
-            None => break,
+            Err(e) => {
+                error!("Error rebasing {}: {}. Aborting...", pr.title, e);
+                rebase.abort().unwrap();
+                return false;
+            }
         }
     }
 
@@ -224,7 +221,7 @@ pub(crate) fn rebase_and_push(
     push(pr, repo, origin_remote)
 }
 
-pub(crate) fn with_revert_to_current_branch<F: FnMut() -> ()>(repo: &Repository, mut f: F) {
+pub(crate) fn with_revert_to_current_branch<F: FnMut()>(repo: &Repository, mut f: F) {
     let current_head = repo.head().unwrap();
     let current_head_name = current_head.name().unwrap();
     debug!("Current HEAD is {}", current_head_name);
@@ -352,7 +349,7 @@ pub(crate) async fn get_all_my_safe_prs(
     my_safe_prs
 }
 
-fn init_octocrab(host: &String) -> Octocrab {
+fn init_octocrab(host: &str) -> Octocrab {
     let oauth_token = get_oauth_token(&host);
 
     OctocrabBuilder::new()
@@ -371,31 +368,30 @@ fn get_oauth_token(host: &str) -> String {
     let filename = format!("{}/.github", var("HOME").unwrap());
 
     let config = fs::read_to_string(&filename)
-        .expect(format!("File {} is missing", filename).as_str())
+        .unwrap_or_else(|_| panic!("File {} is missing", filename))
         .parse::<Value>()
-        .expect(format!("Error parsing {}", filename).as_str());
+        .unwrap_or_else(|_| panic!("Error parsing {}", filename));
 
     let config_table = config
         .as_table()
-        .expect(format!("Error parsing {}", filename).as_str());
+        .unwrap_or_else(|| panic!("Error parsing {}", filename));
 
     let github_table = config_table
         .get(host)
-        .expect(format!("{} table missing from {}", host, filename).as_str())
+        .unwrap_or_else(|| panic!("{} table missing from {}", host, filename))
         .as_table()
-        .expect(format!("Error parsing table {} from {}", host, filename).as_str());
+        .unwrap_or_else(|| panic!("Error parsing table {} from {}", host, filename));
 
     github_table
         .get("oauth")
-        .expect(format!("Missing oauth key for {} in {}", host, filename).as_str())
+        .unwrap_or_else(|| panic!("Missing oauth key for {} in {}", host, filename))
         .as_str()
-        .expect(
-            format!(
+        .unwrap_or_else(|| {
+            panic!(
                 "Expected string for oauth key under {} in {}",
                 host, filename
             )
-            .as_str(),
-        )
+        })
         .to_owned()
 }
 
