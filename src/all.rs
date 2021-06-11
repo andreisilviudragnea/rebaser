@@ -18,7 +18,7 @@ fn is_safe_branch(repo: &Repository, reference: &Reference, refname: &str) -> bo
         .unwrap();
 
     let (number_of_commits_ahead, number_of_commits_behind) =
-        compare_refs(repo, &reference, &origin);
+        compare_refs(repo, reference, &origin);
 
     if number_of_commits_ahead > 0 {
         debug!(
