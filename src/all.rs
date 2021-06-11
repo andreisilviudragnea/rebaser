@@ -292,20 +292,15 @@ async fn get_all_prs(owner: &str, repo_name: &str, octocrab: &Octocrab) -> Vec<P
 
     let mut all_prs = page.items.into_iter().collect::<Vec<PullRequest>>();
 
-    loop {
-        match &page.next {
-            None => break,
-            Some(url) => {
-                page = octocrab
-                    .get_page(&Some(url.to_owned()))
-                    .await
-                    .unwrap()
-                    .unwrap();
+    while let Some(url) = &page.next {
+        page = octocrab
+            .get_page(&Some(url.to_owned()))
+            .await
+            .unwrap()
+            .unwrap();
 
-                for item in page.items {
-                    all_prs.push(item)
-                }
-            }
+        for item in page.items {
+            all_prs.push(item)
         }
     }
 
