@@ -1,7 +1,6 @@
-use git2::ResetType::Hard;
 use git2::{
-    Cred, FetchOptions, ObjectType, PushOptions, RebaseOperationType, Remote, RemoteCallbacks,
-    Repository,
+    Cred, Error, FetchOptions, ObjectType, PushOptions, RebaseOperationType, Remote,
+    RemoteCallbacks, Repository,
 };
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
@@ -20,59 +19,28 @@ fn credentials_callback<'a>() -> RemoteCallbacks<'a> {
     callbacks
 }
 
-pub(crate) fn fetch(origin_remote: &mut Remote) {
+pub(crate) fn fetch(origin_remote: &mut Remote) -> Result<(), Error> {
     let callbacks = credentials_callback();
 
     let mut fetch_options = FetchOptions::new();
     fetch_options.remote_callbacks(callbacks);
 
-    origin_remote
-        .fetch(
-            &[format!(
-                "+refs/heads/*:refs/remotes/{}/*",
-                origin_remote.name().unwrap()
-            )],
-            Some(&mut fetch_options),
-            None,
-        )
-        .unwrap();
+    origin_remote.fetch(
+        &[format!(
+            "+refs/heads/*:refs/remotes/{}/*",
+            origin_remote.name().unwrap()
+        )],
+        Some(&mut fetch_options),
+        None,
+    )
 }
 
-pub(crate) fn push(pr: &PullRequest, repo: &Repository, origin_remote: &mut Remote) -> bool {
-    info!("Pushing changes to remote...");
-
+pub(crate) fn push(origin_remote: &mut Remote, head_ref: &str) -> Result<(), Error> {
     let mut options = PushOptions::new();
 
     options.remote_callbacks(credentials_callback());
 
-    let head_ref = &pr.head.ref_field;
-
-    match origin_remote.push(&[format!("+refs/heads/{}", head_ref)], Some(&mut options)) {
-        Ok(()) => {
-            info!("Successfully pushed changes to remote for \"{}\"", pr.title);
-            true
-        }
-        Err(e) => {
-            error!(
-                "Push to remote failed for \"{}\": {}. Resetting...",
-                pr.title, e
-            );
-
-            let origin_refname = &format!("origin/{}", head_ref);
-
-            let origin_reference = repo
-                .resolve_reference_from_short_name(origin_refname)
-                .unwrap();
-
-            let origin_commit = origin_reference.peel_to_commit().unwrap();
-
-            repo.reset(origin_commit.as_object(), Hard, None).unwrap();
-
-            info!("Successfully reset.");
-
-            false
-        }
-    }
+    origin_remote.push(&[format!("+refs/heads/{}", head_ref)], Some(&mut options))
 }
 
 pub(crate) fn rebase(pr: &PullRequest, repo: &Repository) -> bool {

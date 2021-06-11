@@ -2,6 +2,7 @@ use std::env::var;
 use std::fs;
 
 use crate::git::{log_count, push, rebase};
+use git2::ResetType::Hard;
 use git2::{ObjectType, Reference, Remote, Repository};
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
@@ -67,7 +68,34 @@ pub(crate) fn rebase_and_push(
         return false;
     }
 
-    push(pr, repo, origin_remote)
+    info!("Pushing changes to remote...");
+
+    match push(origin_remote, head_ref) {
+        Ok(()) => {
+            info!("Successfully pushed changes to remote for \"{}\"", pr.title);
+            true
+        }
+        Err(e) => {
+            error!(
+                "Push to remote failed for \"{}\": {}. Resetting...",
+                pr.title, e
+            );
+
+            let origin_refname = &format!("origin/{}", head_ref);
+
+            let origin_reference = repo
+                .resolve_reference_from_short_name(origin_refname)
+                .unwrap();
+
+            let origin_commit = origin_reference.peel_to_commit().unwrap();
+
+            repo.reset(origin_commit.as_object(), Hard, None).unwrap();
+
+            info!("Successfully reset.");
+
+            false
+        }
+    }
 }
 
 pub(crate) fn with_revert_to_current_branch<F: FnMut()>(repo: &Repository, mut f: F) {

@@ -31,7 +31,7 @@ async fn main() {
 
     let mut origin_remote = repo.find_remote(remotes[0]).unwrap();
 
-    fetch(&mut origin_remote);
+    fetch(&mut origin_remote).unwrap();
 
     with_revert_to_current_branch(&repo, || {
         fast_forward_master(&repo);
