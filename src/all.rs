@@ -11,19 +11,17 @@ use octocrab::{Octocrab, OctocrabBuilder};
 use regex::Regex;
 use toml::Value;
 
-fn is_safe_branch(repo: &Repository, reference: &Reference, refname: &str) -> bool {
-    let origin_refname = &format!("origin/{}", refname);
-    let origin = repo
-        .resolve_reference_from_short_name(origin_refname)
-        .unwrap();
-
+fn is_safe_branch(repo: &Repository, reference: &Reference, origin_reference: &Reference) -> bool {
     let (number_of_commits_ahead, number_of_commits_behind) =
-        compare_refs(repo, reference, &origin);
+        compare_refs(repo, reference, origin_reference);
+
+    let reference_name = reference.name().unwrap();
+    let origin_reference_name = origin_reference.name().unwrap();
 
     if number_of_commits_ahead > 0 {
         debug!(
             "Branch \"{}\" is unsafe because it is {} commits ahead \"{}\"",
-            refname, number_of_commits_ahead, origin_refname
+            reference_name, number_of_commits_ahead, origin_reference_name
         );
         return false;
     }
@@ -31,7 +29,7 @@ fn is_safe_branch(repo: &Repository, reference: &Reference, refname: &str) -> bo
     if number_of_commits_behind > 0 {
         debug!(
             "Branch \"{}\" is unsafe because it is {} commits behind \"{}\"",
-            refname, number_of_commits_behind, origin_refname
+            reference_name, number_of_commits_behind, origin_reference_name
         );
         return false;
     }
@@ -68,7 +66,11 @@ pub(crate) fn rebase_and_push(
         return false;
     }
 
-    if is_safe_branch(repo, &head, head_ref) {
+    let origin_head = repo
+        .resolve_reference_from_short_name(&format!("origin/{}", head_ref))
+        .unwrap();
+
+    if is_safe_branch(repo, &head, &origin_head) {
         info!("No changes for \"{}\". Not pushing to remote.", pr.title);
         return false;
     }
@@ -86,11 +88,7 @@ pub(crate) fn rebase_and_push(
                 pr.title, e
             );
 
-            let origin_ref = &format!("origin/{}", head_ref);
-
-            let origin_reference = repo.resolve_reference_from_short_name(origin_ref).unwrap();
-
-            let origin_commit = origin_reference.peel_to_commit().unwrap();
+            let origin_commit = origin_head.peel_to_commit().unwrap();
 
             repo.reset(origin_commit.as_object(), Hard, None).unwrap();
 
@@ -129,7 +127,12 @@ fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
         }
     };
 
-    if !is_safe_branch(repo, &base, base_ref) {
+    let origin_base_ref = &format!("origin/{}", base_ref);
+    let origin_base = repo
+        .resolve_reference_from_short_name(origin_base_ref)
+        .unwrap();
+
+    if !is_safe_branch(repo, &base, &origin_base) {
         debug!(
             "Pr \"{}\" is not safe because base ref \"{}\" is not safe",
             pr.title, base_ref
@@ -149,7 +152,12 @@ fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
         }
     };
 
-    if !is_safe_branch(repo, &head, head_ref) {
+    let origin_head_ref = &format!("origin/{}", head_ref);
+    let origin_head = repo
+        .resolve_reference_from_short_name(origin_head_ref)
+        .unwrap();
+
+    if !is_safe_branch(repo, &head, &origin_head) {
         debug!(
             "Pr \"{}\" is not safe because head ref \"{}\" is not safe",
             pr.title, head_ref
