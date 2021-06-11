@@ -3,7 +3,7 @@ use log::{error, LevelFilter};
 use simple_logger::SimpleLogger;
 
 use crate::all::{get_all_my_safe_prs, rebase_and_push, with_revert_to_current_branch};
-use crate::git::{fast_forward_master, fetch};
+use crate::git::{fast_forward, fetch};
 
 mod all;
 mod git;
@@ -34,7 +34,7 @@ async fn main() {
     fetch(&mut origin_remote).unwrap();
 
     with_revert_to_current_branch(&repo, || {
-        fast_forward_master(&repo);
+        fast_forward(&repo, "master");
     });
 
     let all_my_safe_prs = get_all_my_safe_prs(&repo, &origin_remote).await;

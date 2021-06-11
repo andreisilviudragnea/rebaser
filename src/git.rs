@@ -101,19 +101,19 @@ pub(crate) fn rebase(repo: &Repository, head: &Reference, base: &Reference) -> b
     true
 }
 
-pub(crate) fn fast_forward_master(repo: &Repository) {
-    let mut master_reference = repo.resolve_reference_from_short_name("master").unwrap();
+pub(crate) fn fast_forward(repo: &Repository, refname: &str) {
+    let mut reference = repo.resolve_reference_from_short_name(refname).unwrap();
 
-    let origin_master_reference = repo
-        .resolve_reference_from_short_name("origin/master")
+    let origin_reference = repo
+        .resolve_reference_from_short_name(format!("origin/{}", refname).as_str())
         .unwrap();
 
-    let origin_master_annotated_commit = repo
-        .reference_to_annotated_commit(&origin_master_reference)
+    let origin_annotated_commit = repo
+        .reference_to_annotated_commit(&origin_reference)
         .unwrap();
 
     let (merge_analysis, _) = repo
-        .merge_analysis_for_ref(&master_reference, &[&origin_master_annotated_commit])
+        .merge_analysis_for_ref(&reference, &[&origin_annotated_commit])
         .unwrap();
 
     if merge_analysis.is_up_to_date() {
@@ -124,19 +124,16 @@ pub(crate) fn fast_forward_master(repo: &Repository) {
         panic!("Unexpected merge_analysis={:?}", merge_analysis);
     }
 
-    info!("Fast-forwarded master");
+    info!("Fast-forwarded {}", refname);
 
-    let origin_tree = origin_master_reference.peel(ObjectType::Tree).unwrap();
+    let origin_tree = origin_reference.peel(ObjectType::Tree).unwrap();
 
     repo.checkout_tree(&origin_tree, None).unwrap();
 
-    master_reference
+    reference
         .set_target(
-            origin_master_reference
-                .peel(ObjectType::Commit)
-                .unwrap()
-                .id(),
-            "Fast forward master",
+            origin_reference.peel(ObjectType::Commit).unwrap().id(),
+            format!("Fast forward {}", refname).as_str(),
         )
         .unwrap();
 }
