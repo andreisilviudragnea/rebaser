@@ -148,3 +148,10 @@ pub(crate) fn log_count(repo: &Repository, since: &str, until: &str) -> usize {
 
     revwalk.into_iter().count()
 }
+
+pub(crate) fn switch(repo: &Repository, reference: &Reference) {
+    let refname = reference.name().unwrap();
+    repo.checkout_tree(&reference.peel(ObjectType::Tree).unwrap(), None)
+        .unwrap();
+    repo.set_head(refname).unwrap();
+}

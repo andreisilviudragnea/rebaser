@@ -1,9 +1,9 @@
 use std::env::var;
 use std::fs;
 
-use crate::git::{log_count, push, rebase};
+use crate::git::{log_count, push, rebase, switch};
 use git2::ResetType::Hard;
-use git2::{ObjectType, Reference, Remote, Repository};
+use git2::{Reference, Remote, Repository};
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
 use octocrab::params::State;
@@ -103,17 +103,14 @@ pub(crate) fn rebase_and_push(
 
 pub(crate) fn with_revert_to_current_branch<F: FnMut()>(repo: &Repository, mut f: F) {
     let current_head = repo.head().unwrap();
-    let current_head_name = current_head.name().unwrap();
-    debug!("Current HEAD is {}", current_head_name);
+    debug!("Current HEAD is {}", current_head.name().unwrap());
 
     f();
 
     let head = repo.head().unwrap();
     debug!("Current HEAD is {}", head.name().unwrap());
 
-    repo.checkout_tree(&current_head.peel(ObjectType::Tree).unwrap(), None)
-        .unwrap();
-    repo.set_head(current_head_name).unwrap();
+    switch(repo, &current_head);
 
     let head = repo.head().unwrap();
     debug!("Current HEAD is {}", head.name().unwrap());
