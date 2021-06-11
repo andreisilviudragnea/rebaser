@@ -24,13 +24,12 @@ pub(crate) fn fetch(origin_remote: &mut Remote) -> Result<(), Error> {
     let mut fetch_options = FetchOptions::new();
     fetch_options.remote_callbacks(callbacks);
 
+    let remote_name = origin_remote.name().unwrap();
+
     origin_remote.fetch(
-        &[format!(
-            "+refs/heads/*:refs/remotes/{}/*",
-            origin_remote.name().unwrap()
-        )],
+        &[format!("+refs/heads/*:refs/remotes/{}/*", remote_name)],
         Some(&mut fetch_options),
-        None,
+        Some(format!("Fetched from remote {}", remote_name).as_str()),
     )
 }
 
