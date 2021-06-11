@@ -103,23 +103,19 @@ pub(crate) fn rebase(repo: &Repository, head: &Reference, base: &Reference) -> b
     true
 }
 
-pub(crate) fn fast_forward(repo: &Repository, refname: &str) {
-    let mut reference = repo.resolve_reference_from_short_name(refname).unwrap();
+pub(crate) fn fast_forward(repo: &Repository, refname: &str) -> Result<(), Error> {
+    let mut reference = repo.resolve_reference_from_short_name(refname)?;
 
-    let origin_reference = repo
-        .resolve_reference_from_short_name(format!("origin/{}", refname).as_str())
-        .unwrap();
+    let origin_reference =
+        repo.resolve_reference_from_short_name(format!("origin/{}", refname).as_str())?;
 
-    let origin_annotated_commit = repo
-        .reference_to_annotated_commit(&origin_reference)
-        .unwrap();
+    let origin_annotated_commit = repo.reference_to_annotated_commit(&origin_reference)?;
 
-    let (merge_analysis, _) = repo
-        .merge_analysis_for_ref(&reference, &[&origin_annotated_commit])
-        .unwrap();
+    let (merge_analysis, _) =
+        repo.merge_analysis_for_ref(&reference, &[&origin_annotated_commit])?;
 
     if merge_analysis.is_up_to_date() {
-        return;
+        return Ok(());
     }
 
     if !merge_analysis.is_fast_forward() {
@@ -128,16 +124,16 @@ pub(crate) fn fast_forward(repo: &Repository, refname: &str) {
 
     info!("Fast-forwarded {}", refname);
 
-    let origin_tree = origin_reference.peel(ObjectType::Tree).unwrap();
+    let origin_tree = origin_reference.peel(ObjectType::Tree)?;
 
-    repo.checkout_tree(&origin_tree, None).unwrap();
+    repo.checkout_tree(&origin_tree, None)?;
 
-    reference
-        .set_target(
-            origin_reference.peel(ObjectType::Commit).unwrap().id(),
-            format!("Fast forward {}", refname).as_str(),
-        )
-        .unwrap();
+    reference.set_target(
+        origin_reference.peel(ObjectType::Commit)?.id(),
+        format!("Fast forward {}", refname).as_str(),
+    )?;
+
+    Ok(())
 }
 
 pub(crate) fn log_count(repo: &Repository, since: &str, until: &str) -> usize {

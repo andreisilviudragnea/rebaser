@@ -34,7 +34,7 @@ async fn main() {
     fetch(&mut origin_remote).unwrap();
 
     with_revert_to_current_branch(&repo, || {
-        fast_forward(&repo, "master");
+        fast_forward(&repo, "master").unwrap();
     });
 
     let all_my_safe_prs = get_all_my_safe_prs(&repo, &origin_remote).await;
