@@ -26,10 +26,13 @@ pub(crate) fn fetch(origin_remote: &mut Remote) -> Result<(), Error> {
 
     let remote_name = origin_remote.name().unwrap();
 
+    let refspecs = format!("+refs/heads/*:refs/remotes/{}/*", remote_name);
+    let reflog_msg = format!("Fetched from remote {}", remote_name);
+
     origin_remote.fetch(
-        &[format!("+refs/heads/*:refs/remotes/{}/*", remote_name)],
+        &[refspecs],
         Some(&mut fetch_options),
-        Some(format!("Fetched from remote {}", remote_name).as_str()),
+        Some(reflog_msg.as_str()),
     )
 }
 
