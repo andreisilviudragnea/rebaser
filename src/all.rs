@@ -42,8 +42,8 @@ fn compare_refs(repo: &Repository, head: &Reference, base: &Reference) -> (usize
     let base_commit_name = base.name().unwrap();
 
     (
-        log_count(repo, base_commit_name, head_commit_name),
-        log_count(repo, head_commit_name, base_commit_name),
+        log_count(repo, base_commit_name, head_commit_name).unwrap(),
+        log_count(repo, head_commit_name, base_commit_name).unwrap(),
     )
 }
 
@@ -60,7 +60,7 @@ pub(crate) fn rebase_and_push(
     let head = repo.resolve_reference_from_short_name(head_ref).unwrap();
     let base = repo.resolve_reference_from_short_name(base_ref).unwrap();
 
-    let result = rebase(repo, &head, &base);
+    let result = rebase(repo, &head, &base).unwrap();
 
     if !result {
         return false;
@@ -108,7 +108,7 @@ pub(crate) fn with_revert_to_current_branch<F: FnMut()>(repo: &Repository, mut f
     let head = repo.head().unwrap();
     debug!("Current HEAD is {}", head.name().unwrap());
 
-    switch(repo, &current_head);
+    switch(repo, &current_head).unwrap();
 
     let head = repo.head().unwrap();
     debug!("Current HEAD is {}", head.name().unwrap());

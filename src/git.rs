@@ -44,19 +44,17 @@ pub(crate) fn push(origin_remote: &mut Remote, head_ref: &str) -> Result<(), Err
     origin_remote.push(&[format!("+refs/heads/{}", head_ref)], Some(&mut options))
 }
 
-pub(crate) fn rebase(repo: &Repository, head: &Reference, base: &Reference) -> bool {
-    let mut rebase = repo
-        .rebase(
-            Some(&repo.reference_to_annotated_commit(head).unwrap()),
-            Some(&repo.reference_to_annotated_commit(base).unwrap()),
-            None,
-            None,
-        )
-        .unwrap();
+pub(crate) fn rebase(repo: &Repository, head: &Reference, base: &Reference) -> Result<bool, Error> {
+    let mut rebase = repo.rebase(
+        Some(&repo.reference_to_annotated_commit(head)?),
+        Some(&repo.reference_to_annotated_commit(base)?),
+        None,
+        None,
+    )?;
 
     debug!("Rebase operations: {}", rebase.len());
 
-    let head_commit = repo.head().unwrap().peel_to_commit().unwrap();
+    let head_commit = repo.head()?.peel_to_commit()?;
     let signature = head_commit.committer();
 
     while let Some(op) = rebase.next() {
@@ -68,8 +66,8 @@ pub(crate) fn rebase(repo: &Repository, head: &Reference, base: &Reference) -> b
                     }
                     Err(e) => {
                         error!("Error committing: {}. Aborting...", e);
-                        rebase.abort().unwrap();
-                        return false;
+                        rebase.abort()?;
+                        return Ok(false);
                     }
                 },
                 RebaseOperationType::Reword => {
@@ -90,17 +88,17 @@ pub(crate) fn rebase(repo: &Repository, head: &Reference, base: &Reference) -> b
             },
             Err(e) => {
                 error!("Error rebasing :{}. Aborting...", e);
-                rebase.abort().unwrap();
-                return false;
+                rebase.abort()?;
+                return Ok(false);
             }
         }
     }
 
-    rebase.finish(None).unwrap();
+    rebase.finish(None)?;
 
     info!("Successfully rebased.");
 
-    true
+    Ok(true)
 }
 
 pub(crate) fn fast_forward(repo: &Repository, refname: &str) -> Result<(), Error> {
@@ -136,18 +134,18 @@ pub(crate) fn fast_forward(repo: &Repository, refname: &str) -> Result<(), Error
     Ok(())
 }
 
-pub(crate) fn log_count(repo: &Repository, since: &str, until: &str) -> usize {
-    let mut revwalk = repo.revwalk().unwrap();
+pub(crate) fn log_count(repo: &Repository, since: &str, until: &str) -> Result<usize, Error> {
+    let mut revwalk = repo.revwalk()?;
 
-    revwalk.hide_ref(since).unwrap();
-    revwalk.push_ref(until).unwrap();
+    revwalk.hide_ref(since)?;
+    revwalk.push_ref(until)?;
 
-    revwalk.into_iter().count()
+    Ok(revwalk.into_iter().count())
 }
 
-pub(crate) fn switch(repo: &Repository, reference: &Reference) {
-    let refname = reference.name().unwrap();
-    repo.checkout_tree(&reference.peel(ObjectType::Tree).unwrap(), None)
-        .unwrap();
-    repo.set_head(refname).unwrap();
+pub(crate) fn switch(repo: &Repository, reference: &Reference) -> Result<(), Error> {
+    repo.checkout_tree(&reference.peel(ObjectType::Tree)?, None)?;
+    repo.set_head(reference.name().unwrap())?;
+
+    Ok(())
 }
