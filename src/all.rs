@@ -54,14 +54,19 @@ pub(crate) fn rebase_and_push(
     repo: &Repository,
     origin_remote: &mut Remote,
 ) -> bool {
-    let result = rebase(pr, repo);
+    let head_ref = &pr.head.ref_field;
+    let base_ref = &pr.base.ref_field;
+
+    info!("Rebasing \"{}\" {} <- {}...", pr.title, base_ref, head_ref);
+
+    let head = repo.resolve_reference_from_short_name(head_ref).unwrap();
+    let base = repo.resolve_reference_from_short_name(base_ref).unwrap();
+
+    let result = rebase(repo, &head, &base);
 
     if !result {
         return false;
     }
-
-    let head_ref = &pr.head.ref_field;
-    let head = repo.resolve_reference_from_short_name(head_ref).unwrap();
 
     if is_safe_branch(repo, &head, head_ref) {
         info!("No changes for \"{}\". Not pushing to remote.", pr.title);
@@ -81,11 +86,9 @@ pub(crate) fn rebase_and_push(
                 pr.title, e
             );
 
-            let origin_refname = &format!("origin/{}", head_ref);
+            let origin_ref = &format!("origin/{}", head_ref);
 
-            let origin_reference = repo
-                .resolve_reference_from_short_name(origin_refname)
-                .unwrap();
+            let origin_reference = repo.resolve_reference_from_short_name(origin_ref).unwrap();
 
             let origin_commit = origin_reference.peel_to_commit().unwrap();
 

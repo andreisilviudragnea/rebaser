@@ -1,9 +1,8 @@
 use git2::{
-    Cred, Error, FetchOptions, ObjectType, PushOptions, RebaseOperationType, Remote,
+    Cred, Error, FetchOptions, ObjectType, PushOptions, RebaseOperationType, Reference, Remote,
     RemoteCallbacks, Repository,
 };
 use log::{debug, error, info};
-use octocrab::models::pulls::PullRequest;
 use std::env;
 
 fn credentials_callback<'a>() -> RemoteCallbacks<'a> {
@@ -43,23 +42,11 @@ pub(crate) fn push(origin_remote: &mut Remote, head_ref: &str) -> Result<(), Err
     origin_remote.push(&[format!("+refs/heads/{}", head_ref)], Some(&mut options))
 }
 
-pub(crate) fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
-    let head_ref = &pr.head.ref_field;
-    let base_refname = &pr.base.ref_field;
-    info!(
-        "Rebasing \"{}\" {} <- {}...",
-        pr.title, base_refname, head_ref
-    );
-
-    let head = repo.resolve_reference_from_short_name(head_ref).unwrap();
-    let base = repo
-        .resolve_reference_from_short_name(base_refname)
-        .unwrap();
-
+pub(crate) fn rebase(repo: &Repository, head: &Reference, base: &Reference) -> bool {
     let mut rebase = repo
         .rebase(
-            Some(&repo.reference_to_annotated_commit(&head).unwrap()),
-            Some(&repo.reference_to_annotated_commit(&base).unwrap()),
+            Some(&repo.reference_to_annotated_commit(head).unwrap()),
+            Some(&repo.reference_to_annotated_commit(base).unwrap()),
             None,
             None,
         )
@@ -78,7 +65,7 @@ pub(crate) fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
                         debug!("Successfully committed {}", oid)
                     }
                     Err(e) => {
-                        error!("Error committing for {}: {}. Aborting...", pr.title, e);
+                        error!("Error committing: {}. Aborting...", e);
                         rebase.abort().unwrap();
                         return false;
                     }
@@ -100,7 +87,7 @@ pub(crate) fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
                 }
             },
             Err(e) => {
-                error!("Error rebasing {}: {}. Aborting...", pr.title, e);
+                error!("Error rebasing :{}. Aborting...", e);
                 rebase.abort().unwrap();
                 return false;
             }
@@ -109,10 +96,7 @@ pub(crate) fn rebase(pr: &PullRequest, repo: &Repository) -> bool {
 
     rebase.finish(None).unwrap();
 
-    info!(
-        "Successfully rebased \"{}\". Pushing changes to remote...",
-        pr.title
-    );
+    info!("Successfully rebased.");
 
     true
 }
