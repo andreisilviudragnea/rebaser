@@ -1,0 +1,2 @@
+- name: rust-cargo
+  uses: actions-rs/cargo@v1.0.1
