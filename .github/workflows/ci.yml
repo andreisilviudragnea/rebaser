@@ -11,6 +11,8 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+      - name: Cache Dependencies
+        uses: Swatinem/rust-cache@v1.3.0
       - uses: actions-rs/cargo@v1
         with:
           command: build
