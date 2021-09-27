@@ -7,6 +7,7 @@ use crate::git::fetch;
 
 mod all;
 mod git;
+mod github;
 
 #[tokio::main]
 async fn main() {

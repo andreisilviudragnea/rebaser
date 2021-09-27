@@ -1,15 +1,11 @@
-use std::env::var;
-use std::fs;
-
-use crate::git::{fast_forward, log_count, push, rebase, switch};
 use git2::ResetType::Hard;
 use git2::{Reference, Remote, Repository};
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
-use octocrab::params::State;
-use octocrab::{Octocrab, OctocrabBuilder};
 use regex::Regex;
-use toml::Value;
+
+use crate::git::{fast_forward, log_count, push, rebase, switch};
+use crate::github::{Github, GithubClient};
 
 fn is_safe_branch(repo: &Repository, reference: &Reference, origin_reference: &Reference) -> bool {
     let (number_of_commits_ahead, number_of_commits_behind) =
@@ -200,12 +196,9 @@ pub(crate) async fn get_all_my_safe_prs(
 ) -> Vec<PullRequest> {
     let (host, owner, repo_name) = get_host_owner_repo_name(origin_remote);
 
-    let octocrab = init_octocrab(&host);
+    let github = GithubClient::new(&host);
 
-    let repository: octocrab::models::Repository = octocrab
-        .get(format!("/repos/{}/{}", owner, repo_name), None::<&()>)
-        .await
-        .unwrap();
+    let repository = github.get_repo(&owner, &repo_name).await;
 
     debug!("repo: {:?}", repository);
 
@@ -213,9 +206,9 @@ pub(crate) async fn get_all_my_safe_prs(
         fast_forward(repo, repository.default_branch.as_ref().unwrap()).unwrap();
     });
 
-    let all_prs = get_all_prs(&owner, &repo_name, &octocrab).await;
+    let all_prs = github.get_all_open_prs(&owner, &repo_name).await;
 
-    let user = octocrab.current().user().await.unwrap();
+    let user = github.get_current_user().await;
 
     let my_open_prs = all_prs
         .into_iter()
@@ -243,77 +236,4 @@ pub(crate) async fn get_all_my_safe_prs(
     });
 
     my_safe_prs
-}
-
-fn init_octocrab(host: &str) -> Octocrab {
-    let oauth_token = get_oauth_token(host);
-
-    OctocrabBuilder::new()
-        .base_url(if host == "github.com" {
-            "https://api.github.com/".to_string()
-        } else {
-            format!("https://{}/api/v3/", host)
-        })
-        .unwrap()
-        .personal_token(oauth_token)
-        .build()
-        .unwrap()
-}
-
-fn get_oauth_token(host: &str) -> String {
-    let filename = format!("{}/.github", var("HOME").unwrap());
-
-    let config = fs::read_to_string(&filename)
-        .unwrap_or_else(|_| panic!("File {} is missing", filename))
-        .parse::<Value>()
-        .unwrap_or_else(|_| panic!("Error parsing {}", filename));
-
-    let config_table = config
-        .as_table()
-        .unwrap_or_else(|| panic!("Error parsing {}", filename));
-
-    let github_table = config_table
-        .get(host)
-        .unwrap_or_else(|| panic!("{} table missing from {}", host, filename))
-        .as_table()
-        .unwrap_or_else(|| panic!("Error parsing table {} from {}", host, filename));
-
-    github_table
-        .get("oauth")
-        .unwrap_or_else(|| panic!("Missing oauth key for {} in {}", host, filename))
-        .as_str()
-        .unwrap_or_else(|| {
-            panic!(
-                "Expected string for oauth key under {} in {}",
-                host, filename
-            )
-        })
-        .to_owned()
-}
-
-async fn get_all_prs(owner: &str, repo_name: &str, octocrab: &Octocrab) -> Vec<PullRequest> {
-    let pull_request_handler = octocrab.pulls(owner, repo_name);
-
-    let mut page = pull_request_handler
-        .list()
-        .state(State::Open)
-        .send()
-        .await
-        .unwrap();
-
-    let mut all_prs = page.items.into_iter().collect::<Vec<PullRequest>>();
-
-    while let Some(url) = &page.next {
-        page = octocrab
-            .get_page(&Some(url.to_owned()))
-            .await
-            .unwrap()
-            .unwrap();
-
-        for item in page.items {
-            all_prs.push(item)
-        }
-    }
-
-    all_prs
 }
