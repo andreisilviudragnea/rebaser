@@ -76,7 +76,7 @@ fn get_oauth_token(host: &str) -> String {
 impl Github for GithubClient {
     async fn get_repo(&self, owner: &str, repo_name: &str) -> Repository {
         self.octocrab
-            .get(format!("/repos/{}/{}", owner, repo_name), None::<&()>)
+            .get(format!("repos/{}/{}", owner, repo_name), None::<&()>)
             .await
             .unwrap()
     }
