@@ -66,8 +66,8 @@ pub(crate) fn rebase(repo: &Repository, head: &Reference, base: &Reference) -> R
                         debug!("Successfully committed {}", oid)
                     }
                     Err(e) => {
-                        error!("Error committing: {}. Aborting...", e);
                         if e.code() != ErrorCode::Applied {
+                            error!("Error committing: {}. Aborting...", e);
                             rebase.abort()?;
                             return Ok(false);
                         }
