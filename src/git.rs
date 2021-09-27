@@ -128,8 +128,6 @@ pub(crate) fn fast_forward<S: AsRef<str> + Display>(
         panic!("Unexpected merge_analysis={:?}", merge_analysis);
     }
 
-    info!("Fast-forwarded {}", refname);
-
     let remote_tree = remote_reference.peel(ObjectType::Tree)?;
 
     repo.checkout_tree(&remote_tree, None)?;
@@ -138,6 +136,8 @@ pub(crate) fn fast_forward<S: AsRef<str> + Display>(
         remote_reference.peel(ObjectType::Commit)?.id(),
         format!("Fast forward {}", refname).as_str(),
     )?;
+
+    info!("Fast-forwarded {}", refname);
 
     Ok(())
 }
