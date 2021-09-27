@@ -7,17 +7,17 @@ use regex::Regex;
 use crate::git::{fast_forward, log_count, push, rebase, switch};
 use crate::github::{Github, GithubClient};
 
-fn is_safe_branch(repo: &Repository, reference: &Reference, origin_reference: &Reference) -> bool {
+fn is_safe_branch(repo: &Repository, reference: &Reference, remote_reference: &Reference) -> bool {
     let (number_of_commits_ahead, number_of_commits_behind) =
-        compare_refs(repo, reference, origin_reference);
+        compare_refs(repo, reference, remote_reference);
 
     let reference_name = reference.name().unwrap();
-    let origin_reference_name = origin_reference.name().unwrap();
+    let remote_reference_reference_name = remote_reference.name().unwrap();
 
     if number_of_commits_ahead > 0 {
         debug!(
             "Branch \"{}\" is unsafe because it is {} commits ahead \"{}\"",
-            reference_name, number_of_commits_ahead, origin_reference_name
+            reference_name, number_of_commits_ahead, remote_reference_reference_name
         );
         return false;
     }
@@ -25,7 +25,7 @@ fn is_safe_branch(repo: &Repository, reference: &Reference, origin_reference: &R
     if number_of_commits_behind > 0 {
         debug!(
             "Branch \"{}\" is unsafe because it is {} commits behind \"{}\"",
-            reference_name, number_of_commits_behind, origin_reference_name
+            reference_name, number_of_commits_behind, remote_reference_reference_name
         );
         return false;
     }
@@ -43,11 +43,7 @@ fn compare_refs(repo: &Repository, head: &Reference, base: &Reference) -> (usize
     )
 }
 
-pub(crate) fn rebase_and_push(
-    pr: &PullRequest,
-    repo: &Repository,
-    origin_remote: &mut Remote,
-) -> bool {
+pub(crate) fn rebase_and_push(pr: &PullRequest, repo: &Repository, remote: &mut Remote) -> bool {
     let head_ref = &pr.head.ref_field;
     let base_ref = &pr.base.ref_field;
 
@@ -62,18 +58,18 @@ pub(crate) fn rebase_and_push(
         return false;
     }
 
-    let origin_head = repo
-        .resolve_reference_from_short_name(&format!("origin/{}", head_ref))
+    let remote_head = repo
+        .resolve_reference_from_short_name(&format!("{}/{}", remote.name().unwrap(), head_ref))
         .unwrap();
 
-    if is_safe_branch(repo, &head, &origin_head) {
+    if is_safe_branch(repo, &head, &remote_head) {
         info!("No changes for \"{}\". Not pushing to remote.", pr.title);
         return false;
     }
 
     info!("Pushing changes to remote...");
 
-    match push(origin_remote, head_ref) {
+    match push(remote, head_ref) {
         Ok(()) => {
             info!("Successfully pushed changes to remote for \"{}\"", pr.title);
             true
@@ -84,9 +80,9 @@ pub(crate) fn rebase_and_push(
                 pr.title, e
             );
 
-            let origin_commit = origin_head.peel_to_commit().unwrap();
+            let remote_commit = remote_head.peel_to_commit().unwrap();
 
-            repo.reset(origin_commit.as_object(), Hard, None).unwrap();
+            repo.reset(remote_commit.as_object(), Hard, None).unwrap();
 
             info!("Successfully reset.");
 
@@ -110,7 +106,7 @@ pub(crate) fn with_revert_to_current_branch<F: FnMut()>(repo: &Repository, mut f
     debug!("Current HEAD is {}", head.name().unwrap());
 }
 
-fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
+fn is_safe_pr(repo: &Repository, remote: &Remote, pr: &PullRequest) -> bool {
     let base_ref = &pr.base.ref_field;
     let base = match repo.resolve_reference_from_short_name(base_ref) {
         Ok(reference) => reference,
@@ -123,12 +119,14 @@ fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
         }
     };
 
-    let origin_base_ref = &format!("origin/{}", base_ref);
-    let origin_base = repo
-        .resolve_reference_from_short_name(origin_base_ref)
+    let remote_name = remote.name().unwrap();
+
+    let remote_base_ref = &format!("{}/{}", remote_name, base_ref);
+    let remote_base = repo
+        .resolve_reference_from_short_name(remote_base_ref)
         .unwrap();
 
-    if !is_safe_branch(repo, &base, &origin_base) {
+    if !is_safe_branch(repo, &base, &remote_base) {
         debug!(
             "Pr \"{}\" is not safe because base ref \"{}\" is not safe",
             pr.title, base_ref
@@ -148,12 +146,12 @@ fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
         }
     };
 
-    let origin_head_ref = &format!("origin/{}", head_ref);
-    let origin_head = repo
-        .resolve_reference_from_short_name(origin_head_ref)
+    let remote_head_ref = &format!("{}/{}", remote_name, head_ref);
+    let remote_head = repo
+        .resolve_reference_from_short_name(remote_head_ref)
         .unwrap();
 
-    if !is_safe_branch(repo, &head, &origin_head) {
+    if !is_safe_branch(repo, &head, &remote_head) {
         debug!(
             "Pr \"{}\" is not safe because head ref \"{}\" is not safe",
             pr.title, head_ref
@@ -173,9 +171,9 @@ fn is_safe_pr(repo: &Repository, pr: &PullRequest) -> bool {
     true
 }
 
-fn get_host_owner_repo_name(origin_remote: &Remote) -> (String, String, String) {
-    let remote_url = origin_remote.url().unwrap();
-    debug!("Origin remote: {}", remote_url);
+fn get_host_owner_repo_name(remote: &Remote) -> (String, String, String) {
+    let remote_url = remote.url().unwrap();
+    debug!("remote_url: {}", remote_url);
 
     let regex = Regex::new(r".*@(.*):(.*)/(.*).git").unwrap();
 
@@ -192,9 +190,9 @@ fn get_host_owner_repo_name(origin_remote: &Remote) -> (String, String, String) 
 
 pub(crate) async fn get_all_my_safe_prs(
     repo: &Repository,
-    origin_remote: &Remote<'_>,
+    remote: &Remote<'_>,
 ) -> Vec<PullRequest> {
-    let (host, owner, repo_name) = get_host_owner_repo_name(origin_remote);
+    let (host, owner, repo_name) = get_host_owner_repo_name(remote);
 
     let github = GithubClient::new(&host);
 
@@ -203,7 +201,7 @@ pub(crate) async fn get_all_my_safe_prs(
     debug!("repo: {:?}", repository);
 
     with_revert_to_current_branch(repo, || {
-        fast_forward(repo, repository.default_branch.as_ref().unwrap()).unwrap();
+        fast_forward(repo, remote, repository.default_branch.as_ref().unwrap()).unwrap();
     });
 
     let all_prs = github.get_all_open_prs(&owner, &repo_name).await;
@@ -219,7 +217,7 @@ pub(crate) async fn get_all_my_safe_prs(
 
     let my_safe_prs = my_open_prs
         .into_iter()
-        .filter(|pr| is_safe_pr(repo, pr))
+        .filter(|pr| is_safe_pr(repo, remote, pr))
         .collect::<Vec<PullRequest>>();
 
     info!(
@@ -236,4 +234,29 @@ pub(crate) async fn get_all_my_safe_prs(
     });
 
     my_safe_prs
+}
+
+pub(crate) fn get_primary_remote(repo: &Repository) -> Option<Remote> {
+    let remotes_array = repo.remotes().unwrap();
+
+    let remotes = remotes_array
+        .iter()
+        .map(|it| it.unwrap())
+        .collect::<Vec<&str>>();
+
+    return match remotes.len() {
+        1 => Some(repo.find_remote(remotes[0]).unwrap()),
+        2 => {
+            let _origin_remote = remotes.iter().find(|&&remote| remote == "origin").unwrap();
+            let upstream_remote = remotes
+                .iter()
+                .find(|&&remote| remote == "upstream")
+                .unwrap();
+            Some(repo.find_remote(*upstream_remote).unwrap())
+        }
+        _ => {
+            error!("Only 1 or 2 remotes supported.");
+            None
+        }
+    };
 }

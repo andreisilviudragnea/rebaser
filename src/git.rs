@@ -19,30 +19,30 @@ fn credentials_callback<'a>() -> RemoteCallbacks<'a> {
     callbacks
 }
 
-pub(crate) fn fetch(origin_remote: &mut Remote) -> Result<(), Error> {
+pub(crate) fn fetch(remote: &mut Remote) -> Result<(), Error> {
     let callbacks = credentials_callback();
 
     let mut fetch_options = FetchOptions::new();
     fetch_options.remote_callbacks(callbacks);
 
-    let remote_name = origin_remote.name().unwrap();
+    let remote_name = remote.name().unwrap();
 
     let refspecs = format!("+refs/heads/*:refs/remotes/{}/*", remote_name);
     let reflog_msg = format!("Fetched from remote {}", remote_name);
 
-    origin_remote.fetch(
+    remote.fetch(
         &[refspecs],
         Some(&mut fetch_options),
         Some(reflog_msg.as_str()),
     )
 }
 
-pub(crate) fn push(origin_remote: &mut Remote, head_ref: &str) -> Result<(), Error> {
+pub(crate) fn push(remote: &mut Remote, head_ref: &str) -> Result<(), Error> {
     let mut options = PushOptions::new();
 
     options.remote_callbacks(credentials_callback());
 
-    origin_remote.push(&[format!("+refs/heads/{}", head_ref)], Some(&mut options))
+    remote.push(&[format!("+refs/heads/{}", head_ref)], Some(&mut options))
 }
 
 pub(crate) fn rebase(repo: &Repository, head: &Reference, base: &Reference) -> Result<bool, Error> {
@@ -106,17 +106,19 @@ pub(crate) fn rebase(repo: &Repository, head: &Reference, base: &Reference) -> R
 
 pub(crate) fn fast_forward<S: AsRef<str> + Display>(
     repo: &Repository,
+    remote: &Remote,
     refname: S,
 ) -> Result<(), Error> {
     let mut reference = repo.resolve_reference_from_short_name(refname.as_ref())?;
 
-    let origin_reference =
-        repo.resolve_reference_from_short_name(format!("origin/{}", refname).as_str())?;
+    let remote_reference = repo.resolve_reference_from_short_name(
+        format!("{}/{}", remote.name().unwrap(), refname).as_str(),
+    )?;
 
-    let origin_annotated_commit = repo.reference_to_annotated_commit(&origin_reference)?;
+    let remote_annotated_commit = repo.reference_to_annotated_commit(&remote_reference)?;
 
     let (merge_analysis, _) =
-        repo.merge_analysis_for_ref(&reference, &[&origin_annotated_commit])?;
+        repo.merge_analysis_for_ref(&reference, &[&remote_annotated_commit])?;
 
     if merge_analysis.is_up_to_date() {
         return Ok(());
@@ -128,12 +130,12 @@ pub(crate) fn fast_forward<S: AsRef<str> + Display>(
 
     info!("Fast-forwarded {}", refname);
 
-    let origin_tree = origin_reference.peel(ObjectType::Tree)?;
+    let remote_tree = remote_reference.peel(ObjectType::Tree)?;
 
-    repo.checkout_tree(&origin_tree, None)?;
+    repo.checkout_tree(&remote_tree, None)?;
 
     reference.set_target(
-        origin_reference.peel(ObjectType::Commit)?.id(),
+        remote_reference.peel(ObjectType::Commit)?.id(),
         format!("Fast forward {}", refname).as_str(),
     )?;
 
