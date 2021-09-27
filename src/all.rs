@@ -1,7 +1,7 @@
 use std::env::var;
 use std::fs;
 
-use crate::git::{log_count, push, rebase, switch};
+use crate::git::{fast_forward, log_count, push, rebase, switch};
 use git2::ResetType::Hard;
 use git2::{Reference, Remote, Repository};
 use log::{debug, error, info};
@@ -202,6 +202,17 @@ pub(crate) async fn get_all_my_safe_prs(
 
     let octocrab = init_octocrab(&host);
 
+    let repository: octocrab::models::Repository = octocrab
+        .get(format!("/repos/{}/{}", owner, repo_name), None::<&()>)
+        .await
+        .unwrap();
+
+    debug!("repo: {:?}", repository);
+
+    with_revert_to_current_branch(repo, || {
+        fast_forward(repo, repository.default_branch.as_ref().unwrap()).unwrap();
+    });
+
     let all_prs = get_all_prs(&owner, &repo_name, &octocrab).await;
 
     let user = octocrab.current().user().await.unwrap();
@@ -235,7 +246,7 @@ pub(crate) async fn get_all_my_safe_prs(
 }
 
 fn init_octocrab(host: &str) -> Octocrab {
-    let oauth_token = get_oauth_token(&host);
+    let oauth_token = get_oauth_token(host);
 
     OctocrabBuilder::new()
         .base_url(if host == "github.com" {

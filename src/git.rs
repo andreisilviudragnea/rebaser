@@ -4,6 +4,7 @@ use git2::{
 };
 use log::{debug, error, info};
 use std::env;
+use std::fmt::Display;
 
 fn credentials_callback<'a>() -> RemoteCallbacks<'a> {
     let mut callbacks = RemoteCallbacks::new();
@@ -101,8 +102,11 @@ pub(crate) fn rebase(repo: &Repository, head: &Reference, base: &Reference) -> R
     Ok(true)
 }
 
-pub(crate) fn fast_forward(repo: &Repository, refname: &str) -> Result<(), Error> {
-    let mut reference = repo.resolve_reference_from_short_name(refname)?;
+pub(crate) fn fast_forward<S: AsRef<str> + Display>(
+    repo: &Repository,
+    refname: S,
+) -> Result<(), Error> {
+    let mut reference = repo.resolve_reference_from_short_name(refname.as_ref())?;
 
     let origin_reference =
         repo.resolve_reference_from_short_name(format!("origin/{}", refname).as_str())?;
