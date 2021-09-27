@@ -1,6 +1,6 @@
 use git2::{
-    Cred, Error, FetchOptions, ObjectType, PushOptions, RebaseOperationType, Reference, Remote,
-    RemoteCallbacks, Repository,
+    Cred, Error, ErrorCode, FetchOptions, ObjectType, PushOptions, RebaseOperationType, Reference,
+    Remote, RemoteCallbacks, Repository,
 };
 use log::{debug, error, info};
 use std::env;
@@ -67,8 +67,10 @@ pub(crate) fn rebase(repo: &Repository, head: &Reference, base: &Reference) -> R
                     }
                     Err(e) => {
                         error!("Error committing: {}. Aborting...", e);
-                        rebase.abort()?;
-                        return Ok(false);
+                        if e.code() != ErrorCode::Applied {
+                            rebase.abort()?;
+                            return Ok(false);
+                        }
                     }
                 },
                 RebaseOperationType::Reword => {
