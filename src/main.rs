@@ -1,5 +1,5 @@
 use git2::Repository;
-use log::LevelFilter;
+use log::{info, LevelFilter};
 use simple_logger::SimpleLogger;
 
 use crate::all::{
@@ -21,6 +21,8 @@ async fn main() {
     let repo = Repository::discover(".").unwrap();
 
     let mut remote = get_primary_remote(&repo).unwrap();
+
+    info!("Primary remote: {}", remote.name().unwrap());
 
     fetch(&mut remote).unwrap();
 
