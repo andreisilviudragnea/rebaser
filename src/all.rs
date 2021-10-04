@@ -93,17 +93,20 @@ pub(crate) fn rebase_and_push(pr: &PullRequest, repo: &Repository, remote: &mut 
 
 pub(crate) fn with_revert_to_current_branch<F: FnMut()>(repo: &Repository, mut f: F) {
     let current_head = repo.head().unwrap();
-    debug!("Current HEAD is {}", current_head.name().unwrap());
+
+    let name = current_head.name().unwrap();
+
+    debug!("Current HEAD is {}", name);
 
     f();
 
-    let head = repo.head().unwrap();
-    debug!("Current HEAD is {}", head.name().unwrap());
+    debug!("Current HEAD is {}", repo.head().unwrap().name().unwrap());
 
-    switch(repo, &current_head).unwrap();
+    let reference = repo.resolve_reference_from_short_name(name).unwrap();
 
-    let head = repo.head().unwrap();
-    debug!("Current HEAD is {}", head.name().unwrap());
+    switch(repo, &reference).unwrap();
+
+    debug!("Current HEAD is {}", repo.head().unwrap().name().unwrap());
 }
 
 fn is_safe_pr(repo: &Repository, remote: &Remote, pr: &PullRequest) -> bool {
