@@ -1,13 +1,18 @@
+use git2::Reference;
 use git2::ResetType::Hard;
-use git2::{Reference, Remote, Repository};
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
 use regex::Regex;
 
-use crate::git::{fast_forward, log_count, push, rebase, switch};
+use crate::git::remote::{GitRemote, GitRemoteOps};
+use crate::git::repository::{GitRepository, RepositoryOps};
 use crate::github::{Github, GithubClient};
 
-fn is_safe_branch(repo: &Repository, reference: &Reference, remote_reference: &Reference) -> bool {
+fn is_safe_branch(
+    repo: &GitRepository,
+    reference: &Reference,
+    remote_reference: &Reference,
+) -> bool {
     let (number_of_commits_ahead, number_of_commits_behind) =
         compare_refs(repo, reference, remote_reference);
 
@@ -33,17 +38,21 @@ fn is_safe_branch(repo: &Repository, reference: &Reference, remote_reference: &R
     true
 }
 
-fn compare_refs(repo: &Repository, head: &Reference, base: &Reference) -> (usize, usize) {
+fn compare_refs(repo: &GitRepository, head: &Reference, base: &Reference) -> (usize, usize) {
     let head_commit_name = head.name().unwrap();
     let base_commit_name = base.name().unwrap();
 
     (
-        log_count(repo, base_commit_name, head_commit_name).unwrap(),
-        log_count(repo, head_commit_name, base_commit_name).unwrap(),
+        repo.log_count(base_commit_name, head_commit_name).unwrap(),
+        repo.log_count(head_commit_name, base_commit_name).unwrap(),
     )
 }
 
-pub(crate) fn rebase_and_push(pr: &PullRequest, repo: &Repository, remote: &mut Remote) -> bool {
+pub(crate) fn rebase_and_push(
+    pr: &PullRequest,
+    repo: &GitRepository,
+    remote: &mut GitRemote,
+) -> bool {
     let head_ref = &pr.head.ref_field;
     let base_ref = &pr.base.ref_field;
 
@@ -52,14 +61,14 @@ pub(crate) fn rebase_and_push(pr: &PullRequest, repo: &Repository, remote: &mut 
     let head = repo.resolve_reference_from_short_name(head_ref).unwrap();
     let base = repo.resolve_reference_from_short_name(base_ref).unwrap();
 
-    let result = rebase(repo, &head, &base).unwrap();
+    let result = repo.rebase(&head, &base).unwrap();
 
     if !result {
         return false;
     }
 
     let remote_head = repo
-        .resolve_reference_from_short_name(&format!("{}/{}", remote.name().unwrap(), head_ref))
+        .resolve_reference_from_short_name(&format!("{}/{}", remote.name(), head_ref))
         .unwrap();
 
     if is_safe_branch(repo, &head, &remote_head) {
@@ -69,7 +78,7 @@ pub(crate) fn rebase_and_push(pr: &PullRequest, repo: &Repository, remote: &mut 
 
     info!("Pushing changes to remote...");
 
-    match push(remote, head_ref) {
+    match remote.push(head_ref) {
         Ok(()) => {
             info!("Successfully pushed changes to remote for \"{}\"", pr.title);
             true
@@ -91,7 +100,7 @@ pub(crate) fn rebase_and_push(pr: &PullRequest, repo: &Repository, remote: &mut 
     }
 }
 
-pub(crate) fn with_revert_to_current_branch<F: FnMut()>(repo: &Repository, mut f: F) {
+pub(crate) fn with_revert_to_current_branch<F: FnMut()>(repo: &GitRepository, mut f: F) {
     let current_head = repo.head().unwrap();
 
     let name = current_head.name().unwrap();
@@ -104,12 +113,12 @@ pub(crate) fn with_revert_to_current_branch<F: FnMut()>(repo: &Repository, mut f
 
     let reference = repo.resolve_reference_from_short_name(name).unwrap();
 
-    switch(repo, &reference).unwrap();
+    repo.switch(&reference).unwrap();
 
     debug!("Current HEAD is {}", repo.head().unwrap().name().unwrap());
 }
 
-fn is_safe_pr(repo: &Repository, remote: &Remote, pr: &PullRequest) -> bool {
+fn is_safe_pr(repo: &GitRepository, remote: &GitRemote, pr: &PullRequest) -> bool {
     let base_ref = &pr.base.ref_field;
     let base = match repo.resolve_reference_from_short_name(base_ref) {
         Ok(reference) => reference,
@@ -122,7 +131,7 @@ fn is_safe_pr(repo: &Repository, remote: &Remote, pr: &PullRequest) -> bool {
         }
     };
 
-    let remote_name = remote.name().unwrap();
+    let remote_name = remote.name();
 
     let remote_base_ref = &format!("{}/{}", remote_name, base_ref);
     let remote_base = repo
@@ -174,8 +183,8 @@ fn is_safe_pr(repo: &Repository, remote: &Remote, pr: &PullRequest) -> bool {
     true
 }
 
-fn get_host_owner_repo_name(remote: &Remote) -> (String, String, String) {
-    let remote_url = remote.url().unwrap();
+fn get_host_owner_repo_name(remote: &GitRemote) -> (String, String, String) {
+    let remote_url = remote.url();
     debug!("remote_url: {}", remote_url);
 
     let regex = Regex::new(r".*@(.*):(.*)/(.*).git").unwrap();
@@ -192,8 +201,8 @@ fn get_host_owner_repo_name(remote: &Remote) -> (String, String, String) {
 }
 
 pub(crate) async fn get_all_my_safe_prs(
-    repo: &Repository,
-    remote: &Remote<'_>,
+    repo: &GitRepository,
+    remote: &GitRemote<'_>,
 ) -> Vec<PullRequest> {
     let (host, owner, repo_name) = get_host_owner_repo_name(remote);
 
@@ -204,7 +213,8 @@ pub(crate) async fn get_all_my_safe_prs(
     debug!("repo: {:?}", repository);
 
     with_revert_to_current_branch(repo, || {
-        fast_forward(repo, remote, repository.default_branch.as_ref().unwrap()).unwrap();
+        repo.fast_forward(remote, repository.default_branch.as_ref().unwrap())
+            .unwrap();
     });
 
     let all_prs = github.get_all_open_prs(&owner, &repo_name).await;
@@ -237,29 +247,4 @@ pub(crate) async fn get_all_my_safe_prs(
     });
 
     my_safe_prs
-}
-
-pub(crate) fn get_primary_remote(repo: &Repository) -> Option<Remote> {
-    let remotes_array = repo.remotes().unwrap();
-
-    let remotes = remotes_array
-        .iter()
-        .map(|it| it.unwrap())
-        .collect::<Vec<&str>>();
-
-    return match remotes.len() {
-        1 => Some(repo.find_remote(remotes[0]).unwrap()),
-        2 => {
-            let _origin_remote = remotes.iter().find(|&&remote| remote == "origin").unwrap();
-            let upstream_remote = remotes
-                .iter()
-                .find(|&&remote| remote == "upstream")
-                .unwrap();
-            Some(repo.find_remote(*upstream_remote).unwrap())
-        }
-        _ => {
-            error!("Only 1 or 2 remotes supported.");
-            None
-        }
-    };
 }

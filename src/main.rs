@@ -1,11 +1,10 @@
-use git2::Repository;
 use log::{info, LevelFilter};
 use simple_logger::SimpleLogger;
 
-use crate::all::{
-    get_all_my_safe_prs, get_primary_remote, rebase_and_push, with_revert_to_current_branch,
-};
-use crate::git::fetch;
+use git::remote::{GitRemote, GitRemoteOps};
+
+use crate::all::{get_all_my_safe_prs, rebase_and_push, with_revert_to_current_branch};
+use git::repository::GitRepository;
 
 mod all;
 mod git;
@@ -18,13 +17,13 @@ async fn main() {
         .init()
         .unwrap();
 
-    let repo = Repository::discover(".").unwrap();
+    let repo = GitRepository::new();
 
-    let mut remote = get_primary_remote(&repo).unwrap();
+    let mut remote = GitRemote::new(&repo);
 
-    info!("Primary remote: {}", remote.name().unwrap());
+    info!("Primary remote: {}", remote.name());
 
-    fetch(&mut remote).unwrap();
+    remote.fetch().unwrap();
 
     let all_my_safe_prs = get_all_my_safe_prs(&repo, &remote).await;
 
