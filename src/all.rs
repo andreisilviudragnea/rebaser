@@ -208,14 +208,12 @@ pub(crate) async fn get_all_my_safe_prs(
 
     let github = GithubClient::new(&host);
 
-    let repository = github.get_repo(&owner, &repo_name).await;
+    let github_repo = github.get_repo(&owner, &repo_name).await;
 
-    debug!("repo: {:?}", repository);
+    debug!("Github repo: {:?}", github_repo);
 
-    with_revert_to_current_branch(repo, || {
-        repo.fast_forward(remote, repository.default_branch.as_ref().unwrap())
-            .unwrap();
-    });
+    repo.fast_forward(remote, github_repo.default_branch.as_ref().unwrap())
+        .unwrap();
 
     let all_prs = github.get_all_open_prs(&owner, &repo_name).await;
 
