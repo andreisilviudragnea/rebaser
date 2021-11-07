@@ -55,8 +55,8 @@ impl RepositoryOps for GitRepository {
 
         debug!("Rebase operations: {}", rebase.len());
 
-        let head_commit = self.0.head()?.peel_to_commit()?;
-        let signature = head_commit.committer();
+        let base_commit = base.peel_to_commit()?;
+        let signature = base_commit.author();
 
         while let Some(op) = rebase.next() {
             match op {
