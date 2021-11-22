@@ -6,6 +6,8 @@ jobs:
   build_and_test:
     name: Rust project
     runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: "-D warnings"
     steps:
       - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
@@ -15,5 +17,13 @@ jobs:
         uses: Swatinem/rust-cache@v1.3.0
       - uses: actions-rs/cargo@v1
         with:
+          command: clippy
+          args: --release --all-features
+      - uses: actions-rs/cargo@v1
+        with:
           command: build
+          args: --release --all-features
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
           args: --release --all-features
