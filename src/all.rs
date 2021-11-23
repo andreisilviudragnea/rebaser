@@ -56,7 +56,9 @@ pub(crate) fn rebase_and_push(
     let head_ref = &pr.head.ref_field;
     let base_ref = &pr.base.ref_field;
 
-    info!("Rebasing \"{}\" {} <- {}...", pr.title, base_ref, head_ref);
+    let pr_title = pr.title.as_ref().unwrap();
+
+    info!("Rebasing \"{}\" {} <- {}...", pr_title, base_ref, head_ref);
 
     let head = repo.resolve_reference_from_short_name(head_ref).unwrap();
     let base = repo.resolve_reference_from_short_name(base_ref).unwrap();
@@ -72,7 +74,7 @@ pub(crate) fn rebase_and_push(
         .unwrap();
 
     if is_safe_branch(repo, &head, &remote_head) {
-        info!("No changes for \"{}\". Not pushing to remote.", pr.title);
+        info!("No changes for \"{}\". Not pushing to remote.", pr_title);
         return false;
     }
 
@@ -80,13 +82,13 @@ pub(crate) fn rebase_and_push(
 
     match remote.push(head_ref) {
         Ok(()) => {
-            info!("Successfully pushed changes to remote for \"{}\"", pr.title);
+            info!("Successfully pushed changes to remote for \"{}\"", pr_title);
             true
         }
         Err(e) => {
             error!(
                 "Push to remote failed for \"{}\": {}. Resetting...",
-                pr.title, e
+                pr_title, e
             );
 
             let remote_commit = remote_head.peel_to_commit().unwrap();
@@ -138,10 +140,12 @@ fn is_safe_pr(repo: &GitRepository, remote: &GitRemote, pr: &PullRequest) -> boo
         .resolve_reference_from_short_name(remote_base_ref)
         .unwrap();
 
+    let pr_title = pr.title.as_ref().unwrap();
+
     if !is_safe_branch(repo, &base, &remote_base) {
         debug!(
             "Pr \"{}\" is not safe because base ref \"{}\" is not safe",
-            pr.title, base_ref
+            pr_title, base_ref
         );
         return false;
     }
@@ -166,12 +170,12 @@ fn is_safe_pr(repo: &GitRepository, remote: &GitRemote, pr: &PullRequest) -> boo
     if !is_safe_branch(repo, &head, &remote_head) {
         debug!(
             "Pr \"{}\" is not safe because head ref \"{}\" is not safe",
-            pr.title, head_ref
+            pr_title, head_ref
         );
         return false;
     }
 
-    debug!("\"{}\" {} <- {}", pr.title, base_ref, head_ref);
+    debug!("\"{}\" {} <- {}", pr_title, base_ref, head_ref);
 
     let (number_of_commits_ahead, number_of_commits_behind) = compare_refs(repo, &head, &base);
 
@@ -221,7 +225,7 @@ pub(crate) async fn get_all_my_safe_prs(
 
     let my_open_prs = all_prs
         .into_iter()
-        .filter(|pr| pr.user == user)
+        .filter(|pr| **pr.user.as_ref().unwrap() == user)
         .collect::<Vec<PullRequest>>();
 
     let num_of_my_open_prs = my_open_prs.len();
@@ -240,7 +244,9 @@ pub(crate) async fn get_all_my_safe_prs(
     my_safe_prs.iter().for_each(|pr| {
         info!(
             "\"{}\" {} <- {}",
-            pr.title, pr.base.ref_field, pr.head.ref_field
+            pr.title.as_ref().unwrap(),
+            pr.base.ref_field,
+            pr.head.ref_field
         );
     });
 
