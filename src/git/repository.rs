@@ -55,24 +55,24 @@ impl RepositoryOps for GitRepository {
 
         debug!("Rebase operations: {}", rebase.len());
 
-        let base_commit = base.peel_to_commit()?;
-        let signature = base_commit.author();
-
         while let Some(op) = rebase.next() {
             match op {
                 Ok(operation) => match operation.kind().unwrap() {
-                    RebaseOperationType::Pick => match rebase.commit(None, &signature, None) {
-                        Ok(oid) => {
-                            debug!("Successfully committed {}", oid)
-                        }
-                        Err(e) => {
-                            if e.code() != ErrorCode::Applied {
-                                error!("Error committing: {}. Aborting...", e);
-                                rebase.abort()?;
-                                return Ok(false);
+                    RebaseOperationType::Pick => {
+                        let commit = self.0.find_commit(operation.id()).unwrap();
+                        match rebase.commit(None, &commit.committer(), None) {
+                            Ok(oid) => {
+                                debug!("Successfully committed {}", oid)
                             }
-                        }
-                    },
+                            Err(e) => {
+                                if e.code() != ErrorCode::Applied {
+                                    error!("Error committing: {}. Aborting...", e);
+                                    rebase.abort()?;
+                                    return Ok(false);
+                                }
+                            }
+                        };
+                    }
                     RebaseOperationType::Reword => {
                         panic!("Reword encountered");
                     }
