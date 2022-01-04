@@ -13,6 +13,7 @@ mod github;
 #[tokio::main]
 async fn main() {
     SimpleLogger::new()
+        .with_utc_timestamps()
         .with_level(LevelFilter::Info)
         .init()
         .unwrap();
