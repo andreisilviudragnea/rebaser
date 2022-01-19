@@ -21,16 +21,14 @@ fn is_safe_branch(
 
     if number_of_commits_ahead > 0 {
         debug!(
-            "Branch \"{}\" is unsafe because it is {} commits ahead \"{}\"",
-            reference_name, number_of_commits_ahead, remote_reference_reference_name
+            "Branch \"{reference_name}\" is unsafe because it is {number_of_commits_ahead} commits ahead \"{remote_reference_reference_name}\""
         );
         return false;
     }
 
     if number_of_commits_behind > 0 {
         debug!(
-            "Branch \"{}\" is unsafe because it is {} commits behind \"{}\"",
-            reference_name, number_of_commits_behind, remote_reference_reference_name
+            "Branch \"{reference_name}\" is unsafe because it is {number_of_commits_behind} commits behind \"{remote_reference_reference_name}\""
         );
         return false;
     }
@@ -58,7 +56,7 @@ pub(crate) fn rebase_and_push(
 
     let pr_title = pr.title.as_ref().unwrap();
 
-    info!("Rebasing \"{}\" {} <- {}...", pr_title, base_ref, head_ref);
+    info!("Rebasing \"{pr_title}\" {base_ref} <- {head_ref}...");
 
     let head = repo.resolve_reference_from_short_name(head_ref).unwrap();
     let base = repo.resolve_reference_from_short_name(base_ref).unwrap();
@@ -70,11 +68,11 @@ pub(crate) fn rebase_and_push(
     }
 
     let remote_head = repo
-        .resolve_reference_from_short_name(&format!("{}/{}", remote.name(), head_ref))
+        .resolve_reference_from_short_name(&format!("{}/{head_ref}", remote.name()))
         .unwrap();
 
     if is_safe_branch(repo, &head, &remote_head) {
-        info!("No changes for \"{}\". Not pushing to remote.", pr_title);
+        info!("No changes for \"{pr_title}\". Not pushing to remote.");
         return false;
     }
 
@@ -82,14 +80,11 @@ pub(crate) fn rebase_and_push(
 
     match remote.push(head_ref) {
         Ok(()) => {
-            info!("Successfully pushed changes to remote for \"{}\"", pr_title);
+            info!("Successfully pushed changes to remote for \"{pr_title}\"");
             true
         }
         Err(e) => {
-            error!(
-                "Push to remote failed for \"{}\": {}. Resetting...",
-                pr_title, e
-            );
+            error!("Push to remote failed for \"{pr_title}\": {e}. Resetting...");
 
             let remote_commit = remote_head.peel_to_commit().unwrap();
 
@@ -107,7 +102,7 @@ pub(crate) fn with_revert_to_current_branch<F: FnMut()>(repo: &GitRepository, mu
 
     let name = current_head.name().unwrap();
 
-    debug!("Current HEAD is {}", name);
+    debug!("Current HEAD is {name}");
 
     f();
 
@@ -125,17 +120,14 @@ fn is_safe_pr(repo: &GitRepository, remote: &GitRemote, pr: &PullRequest) -> boo
     let base = match repo.resolve_reference_from_short_name(base_ref) {
         Ok(reference) => reference,
         Err(e) => {
-            error!(
-                "Error resolving reference from shortname for {}: {}",
-                base_ref, e
-            );
+            error!("Error resolving reference from shortname for {base_ref}: {e}");
             return false;
         }
     };
 
     let remote_name = remote.name();
 
-    let remote_base_ref = &format!("{}/{}", remote_name, base_ref);
+    let remote_base_ref = &format!("{}/{base_ref}", remote_name);
     let remote_base = repo
         .resolve_reference_from_short_name(remote_base_ref)
         .unwrap();
@@ -143,10 +135,7 @@ fn is_safe_pr(repo: &GitRepository, remote: &GitRemote, pr: &PullRequest) -> boo
     let pr_title = pr.title.as_ref().unwrap();
 
     if !is_safe_branch(repo, &base, &remote_base) {
-        debug!(
-            "Pr \"{}\" is not safe because base ref \"{}\" is not safe",
-            pr_title, base_ref
-        );
+        debug!("Pr \"{pr_title}\" is not safe because base ref \"{base_ref}\" is not safe");
         return false;
     }
 
@@ -154,10 +143,7 @@ fn is_safe_pr(repo: &GitRepository, remote: &GitRemote, pr: &PullRequest) -> boo
     let head = match repo.resolve_reference_from_short_name(head_ref) {
         Ok(reference) => reference,
         Err(e) => {
-            error!(
-                "Error resolving reference from shortname for {}: {}",
-                head_ref, e
-            );
+            error!("Error resolving reference from shortname for {head_ref}: {e}");
             return false;
         }
     };
@@ -168,20 +154,16 @@ fn is_safe_pr(repo: &GitRepository, remote: &GitRemote, pr: &PullRequest) -> boo
         .unwrap();
 
     if !is_safe_branch(repo, &head, &remote_head) {
-        debug!(
-            "Pr \"{}\" is not safe because head ref \"{}\" is not safe",
-            pr_title, head_ref
-        );
+        debug!("Pr \"{pr_title}\" is not safe because head ref \"{head_ref}\" is not safe");
         return false;
     }
 
-    debug!("\"{}\" {} <- {}", pr_title, base_ref, head_ref);
+    debug!("\"{pr_title}\" {base_ref} <- {head_ref}");
 
     let (number_of_commits_ahead, number_of_commits_behind) = compare_refs(repo, &head, &base);
 
     debug!(
-        "\"{}\" is {} commits ahead, {} commits behind \"{}\"",
-        head_ref, number_of_commits_ahead, number_of_commits_behind, base_ref
+        "\"{head_ref}\" is {number_of_commits_ahead} commits ahead, {number_of_commits_behind} commits behind \"{base_ref}\""
     );
 
     true
@@ -189,7 +171,7 @@ fn is_safe_pr(repo: &GitRepository, remote: &GitRemote, pr: &PullRequest) -> boo
 
 fn get_host_owner_repo_name(remote: &GitRemote) -> (String, String, String) {
     let remote_url = remote.url();
-    debug!("remote_url: {}", remote_url);
+    debug!("remote_url: {remote_url}");
 
     let regex = Regex::new(r".*@(.*):(.*)/(.*).git").unwrap();
 
@@ -199,7 +181,7 @@ fn get_host_owner_repo_name(remote: &GitRemote) -> (String, String, String) {
     let owner = &captures[2];
     let repo_name = &captures[3];
 
-    debug!("{}:{}/{}", host, owner, repo_name);
+    debug!("{host}:{owner}/{repo_name}");
 
     (host.to_owned(), owner.to_owned(), repo_name.to_owned())
 }
@@ -214,7 +196,7 @@ pub(crate) async fn get_all_my_safe_prs(
 
     let github_repo = github.get_repo(&owner, &repo_name).await;
 
-    debug!("Github repo: {:?}", github_repo);
+    debug!("Github repo: {github_repo:?}");
 
     repo.fast_forward(remote, github_repo.default_branch.as_ref().unwrap())
         .unwrap();
@@ -236,9 +218,8 @@ pub(crate) async fn get_all_my_safe_prs(
         .collect::<Vec<PullRequest>>();
 
     info!(
-        "Going to rebase {}/{} safe pull requests:",
-        my_safe_prs.len(),
-        num_of_my_open_prs
+        "Going to rebase {}/{num_of_my_open_prs} safe pull requests:",
+        my_safe_prs.len()
     );
 
     my_safe_prs.iter().for_each(|pr| {

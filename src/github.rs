@@ -33,7 +33,7 @@ fn init_octocrab(host: &str) -> Octocrab {
         .base_url(if host == "github.com" {
             "https://api.github.com/".to_string()
         } else {
-            format!("https://{}/api/v3/", host)
+            format!("https://{host}/api/v3/")
         })
         .unwrap()
         .personal_token(oauth_token)
@@ -45,30 +45,25 @@ fn get_oauth_token(host: &str) -> String {
     let filename = format!("{}/.github", var("HOME").unwrap());
 
     let config = fs::read_to_string(&filename)
-        .unwrap_or_else(|_| panic!("File {} is missing", filename))
+        .unwrap_or_else(|_| panic!("File {filename} is missing"))
         .parse::<Value>()
-        .unwrap_or_else(|_| panic!("Error parsing {}", filename));
+        .unwrap_or_else(|_| panic!("Error parsing {filename}"));
 
     let config_table = config
         .as_table()
-        .unwrap_or_else(|| panic!("Error parsing {}", filename));
+        .unwrap_or_else(|| panic!("Error parsing {filename}"));
 
     let github_table = config_table
         .get(host)
-        .unwrap_or_else(|| panic!("{} table missing from {}", host, filename))
+        .unwrap_or_else(|| panic!("{host} table missing from {filename}"))
         .as_table()
-        .unwrap_or_else(|| panic!("Error parsing table {} from {}", host, filename));
+        .unwrap_or_else(|| panic!("Error parsing table {host} from {filename}"));
 
     github_table
         .get("oauth")
-        .unwrap_or_else(|| panic!("Missing oauth key for {} in {}", host, filename))
+        .unwrap_or_else(|| panic!("Missing oauth key for {host} in {filename}"))
         .as_str()
-        .unwrap_or_else(|| {
-            panic!(
-                "Expected string for oauth key under {} in {}",
-                host, filename
-            )
-        })
+        .unwrap_or_else(|| panic!("Expected string for oauth key under {host} in {filename}"))
         .to_owned()
 }
 
@@ -76,7 +71,7 @@ fn get_oauth_token(host: &str) -> String {
 impl Github for GithubClient {
     async fn get_repo(&self, owner: &str, repo_name: &str) -> Repository {
         self.octocrab
-            .get(format!("repos/{}/{}", owner, repo_name), None::<&()>)
+            .get(format!("repos/{owner}/{repo_name}"), None::<&()>)
             .await
             .unwrap()
     }

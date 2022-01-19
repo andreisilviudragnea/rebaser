@@ -31,8 +31,8 @@ impl GitRemoteOps for GitRemote<'_> {
 
         let remote_name = self.0.name().unwrap();
 
-        let refspecs = format!("+refs/heads/*:refs/remotes/{}/*", remote_name);
-        let reflog_msg = format!("Fetched from remote {}", remote_name);
+        let refspecs = format!("+refs/heads/*:refs/remotes/{remote_name}/*");
+        let reflog_msg = format!("Fetched from remote {remote_name}");
 
         self.0.fetch(
             &[refspecs],
@@ -47,7 +47,7 @@ impl GitRemoteOps for GitRemote<'_> {
         options.remote_callbacks(credentials_callback());
 
         self.0
-            .push(&[format!("+refs/heads/{}", head_ref)], Some(&mut options))
+            .push(&[format!("+refs/heads/{head_ref}")], Some(&mut options))
     }
 
     fn name(&self) -> &str {

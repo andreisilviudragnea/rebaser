@@ -90,7 +90,7 @@ impl RepositoryOps for GitRepository {
                     }
                 },
                 Err(e) => {
-                    error!("Error rebasing :{}. Aborting...", e);
+                    error!("Error rebasing :{e}. Aborting...");
                     rebase.abort()?;
                     return Ok(false);
                 }
@@ -113,7 +113,7 @@ impl RepositoryOps for GitRepository {
 
         let remote_reference = self
             .0
-            .resolve_reference_from_short_name(format!("{}/{}", remote.name(), refname).as_str())?;
+            .resolve_reference_from_short_name(format!("{}/{refname}", remote.name()).as_str())?;
 
         let remote_annotated_commit = self.0.reference_to_annotated_commit(&remote_reference)?;
 
@@ -126,7 +126,7 @@ impl RepositoryOps for GitRepository {
         }
 
         if !merge_analysis.is_fast_forward() {
-            panic!("Unexpected merge_analysis={:?}", merge_analysis);
+            panic!("Unexpected merge_analysis={merge_analysis:?}");
         }
 
         if reference == self.head()? {
@@ -137,10 +137,10 @@ impl RepositoryOps for GitRepository {
 
         reference.set_target(
             remote_reference.peel(ObjectType::Commit)?.id(),
-            format!("Fast-forward {}", refname).as_str(),
+            format!("Fast-forward {refname}").as_str(),
         )?;
 
-        info!("Fast-forwarded {}", refname);
+        info!("Fast-forwarded {refname}");
 
         Ok(())
     }
