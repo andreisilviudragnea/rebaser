@@ -2,9 +2,9 @@ use log::{info, LevelFilter};
 use simple_logger::SimpleLogger;
 
 use git::remote::{GitRemote, GitRemoteOps};
+use git::repository::GitRepository;
 
 use crate::all::{get_all_my_safe_prs, rebase_and_push, with_revert_to_current_branch};
-use git::repository::GitRepository;
 
 mod all;
 mod git;
