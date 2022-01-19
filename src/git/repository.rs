@@ -134,9 +134,6 @@ impl RepositoryOps for GitRepository {
             format!("Fast forward {}", refname).as_str(),
         )?;
 
-        self.0
-            .checkout_tree(&remote_reference.peel(ObjectType::Tree)?, None)?;
-
         info!("Fast-forwarded {}", refname);
 
         Ok(())
