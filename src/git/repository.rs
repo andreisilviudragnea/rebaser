@@ -129,9 +129,15 @@ impl RepositoryOps for GitRepository {
             panic!("Unexpected merge_analysis={:?}", merge_analysis);
         }
 
+        if reference == self.head()? {
+            self.0
+                .checkout_tree(&remote_reference.peel(ObjectType::Tree)?, None)?;
+            debug!("Updated index and tree");
+        }
+
         reference.set_target(
             remote_reference.peel(ObjectType::Commit)?.id(),
-            format!("Fast forward {}", refname).as_str(),
+            format!("Fast-forward {}", refname).as_str(),
         )?;
 
         info!("Fast-forwarded {}", refname);
