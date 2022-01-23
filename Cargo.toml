@@ -10,7 +10,7 @@ edition = "2021"
 git2 = "0.13.25"
 octocrab = "0.15.3"
 config = "0.11.0"
-serde_json = "1.0.76"
+serde_json = "1.0.78"
 tokio = { version = "1.15.0", features = ["full"] }
 regex = "1.5.4"
 toml = "0.5.8"
