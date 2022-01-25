@@ -87,54 +87,55 @@ pub(crate) fn with_revert_to_current_branch<F: FnMut()>(repo: &GitRepository, mu
 }
 
 fn is_safe_pr(repo: &GitRepository, remote: &GitRemote, pr: &PullRequest) -> bool {
-    let base_ref = &pr.base.ref_field;
-    let base = match repo.resolve_reference_from_short_name(base_ref) {
+    let base = &pr.base.ref_field;
+
+    let base_ref = match repo.resolve_reference_from_short_name(base) {
         Ok(reference) => reference,
         Err(e) => {
-            error!("Error resolving reference from shortname for {base_ref}: {e}");
+            error!("Error resolving reference from shortname for {base}: {e}");
             return false;
         }
     };
 
     let remote_name = remote.name();
 
-    let remote_base_ref = &format!("{}/{base_ref}", remote_name);
-    let remote_base = repo
-        .resolve_reference_from_short_name(remote_base_ref)
+    let remote_base_ref = repo
+        .resolve_reference_from_short_name(&format!("{}/{base}", remote_name))
         .unwrap();
 
     let pr_title = pr.title.as_ref().unwrap();
 
-    if base != remote_base {
-        debug!("Pr \"{pr_title}\" is not safe because base ref \"{base_ref}\" is not safe");
+    if base_ref != remote_base_ref {
+        debug!("Pr \"{pr_title}\" is not safe because base ref \"{base}\" is not safe");
         return false;
     }
 
-    let head_ref = &pr.head.ref_field;
-    let head = match repo.resolve_reference_from_short_name(head_ref) {
+    let head = &pr.head.ref_field;
+
+    let head_ref = match repo.resolve_reference_from_short_name(head) {
         Ok(reference) => reference,
         Err(e) => {
-            error!("Error resolving reference from shortname for {head_ref}: {e}");
+            error!("Error resolving reference from shortname for {head}: {e}");
             return false;
         }
     };
 
-    let remote_head_ref = &format!("{}/{}", remote_name, head_ref);
-    let remote_head = repo
-        .resolve_reference_from_short_name(remote_head_ref)
+    let remote_head_ref = repo
+        .resolve_reference_from_short_name(&format!("{}/{}", remote_name, head))
         .unwrap();
 
-    if head != remote_head {
-        debug!("Pr \"{pr_title}\" is not safe because head ref \"{head_ref}\" is not safe");
+    if head_ref != remote_head_ref {
+        debug!("Pr \"{pr_title}\" is not safe because head ref \"{head}\" is not safe");
         return false;
     }
 
-    debug!("\"{pr_title}\" {base_ref} <- {head_ref}");
+    debug!("\"{pr_title}\" {base} <- {head}");
 
-    let (number_of_commits_ahead, number_of_commits_behind) = compare_refs(repo, &head, &base);
+    let (number_of_commits_ahead, number_of_commits_behind) =
+        compare_refs(repo, &head_ref, &base_ref);
 
     debug!(
-        "\"{head_ref}\" is {number_of_commits_ahead} commits ahead, {number_of_commits_behind} commits behind \"{base_ref}\""
+        "\"{head}\" is {number_of_commits_ahead} commits ahead, {number_of_commits_behind} commits behind \"{base}\""
     );
 
     true
