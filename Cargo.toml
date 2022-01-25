@@ -18,3 +18,7 @@ url = "2.2.2"
 log = "0.4.14"
 simple_logger = "2.1.0"
 async-trait = "0.1.52"
+
+[features]
+default = ["native-rebase"]
+native-rebase = []

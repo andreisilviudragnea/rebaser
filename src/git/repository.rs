@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::process::Command;
 
 use git2::build::CheckoutBuilder;
 use git2::{
@@ -38,15 +39,27 @@ impl GitRepository {
     pub(crate) fn new() -> GitRepository {
         GitRepository(Repository::discover(".").unwrap())
     }
-}
 
-impl RepositoryOps for GitRepository {
-    fn rebase(&self, head: &str, base: &str) -> bool {
+    fn libgit2_rebase(&self, head: &str, base: &str) -> bool {
         let mut rebase = self
             .0
             .rebase(
-                Some(&self.0.reference_to_annotated_commit(&self.0.resolve_reference_from_short_name(head).unwrap()).unwrap()),
-                Some(&self.0.reference_to_annotated_commit(&self.0.resolve_reference_from_short_name(base).unwrap()).unwrap()),
+                Some(
+                    &self
+                        .0
+                        .reference_to_annotated_commit(
+                            &self.0.resolve_reference_from_short_name(head).unwrap(),
+                        )
+                        .unwrap(),
+                ),
+                Some(
+                    &self
+                        .0
+                        .reference_to_annotated_commit(
+                            &self.0.resolve_reference_from_short_name(base).unwrap(),
+                        )
+                        .unwrap(),
+                ),
                 None,
                 None,
             )
@@ -101,6 +114,27 @@ impl RepositoryOps for GitRepository {
         info!("Successfully rebased.");
 
         true
+    }
+
+    fn native_rebase(&self, head: &str, base: &str) -> bool {
+        let output = Command::new("git")
+            .arg("rebase")
+            .arg(base)
+            .arg(head)
+            .output()
+            .unwrap();
+        debug!("Native rebase: {:?}", output);
+        output.status.success()
+    }
+}
+
+impl RepositoryOps for GitRepository {
+    fn rebase(&self, head: &str, base: &str) -> bool {
+        if cfg!(feature = "native-rebase") {
+            self.native_rebase(head, base)
+        } else {
+            self.libgit2_rebase(head, base)
+        }
     }
 
     fn fast_forward<S: AsRef<str> + Display>(&self, remote: &GitRemote, refname: S) {
