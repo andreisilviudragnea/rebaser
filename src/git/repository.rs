@@ -10,7 +10,7 @@ use log::{debug, error, info};
 use crate::git::remote::{GitRemote, GitRemoteOps};
 
 pub(crate) trait RepositoryOps {
-    fn rebase(&self, head: &Reference, base: &Reference) -> bool;
+    fn rebase(&self, head: &str, base: &str) -> bool;
 
     fn fast_forward<S: AsRef<str> + Display>(&self, remote: &GitRemote, refname: S);
 
@@ -41,12 +41,12 @@ impl GitRepository {
 }
 
 impl RepositoryOps for GitRepository {
-    fn rebase(&self, head: &Reference, base: &Reference) -> bool {
+    fn rebase(&self, head: &str, base: &str) -> bool {
         let mut rebase = self
             .0
             .rebase(
-                Some(&self.0.reference_to_annotated_commit(head).unwrap()),
-                Some(&self.0.reference_to_annotated_commit(base).unwrap()),
+                Some(&self.0.reference_to_annotated_commit(&self.0.resolve_reference_from_short_name(head).unwrap()).unwrap()),
+                Some(&self.0.reference_to_annotated_commit(&self.0.resolve_reference_from_short_name(base).unwrap()).unwrap()),
                 None,
                 None,
             )

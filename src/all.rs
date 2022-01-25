@@ -8,34 +8,6 @@ use crate::git::remote::{GitRemote, GitRemoteOps};
 use crate::git::repository::{GitRepository, RepositoryOps};
 use crate::github::{Github, GithubClient};
 
-fn is_safe_branch(
-    repo: &GitRepository,
-    reference: &Reference,
-    remote_reference: &Reference,
-) -> bool {
-    let (number_of_commits_ahead, number_of_commits_behind) =
-        compare_refs(repo, reference, remote_reference);
-
-    let reference_name = reference.name().unwrap();
-    let remote_reference_reference_name = remote_reference.name().unwrap();
-
-    if number_of_commits_ahead > 0 {
-        debug!(
-            "Branch \"{reference_name}\" is unsafe because it is {number_of_commits_ahead} commits ahead \"{remote_reference_reference_name}\""
-        );
-        return false;
-    }
-
-    if number_of_commits_behind > 0 {
-        debug!(
-            "Branch \"{reference_name}\" is unsafe because it is {number_of_commits_behind} commits behind \"{remote_reference_reference_name}\""
-        );
-        return false;
-    }
-
-    true
-}
-
 fn compare_refs(repo: &GitRepository, head: &Reference, base: &Reference) -> (usize, usize) {
     let head_commit_name = head.name().unwrap();
     let base_commit_name = base.name().unwrap();
@@ -51,34 +23,33 @@ pub(crate) fn rebase_and_push(
     repo: &GitRepository,
     remote: &mut GitRemote,
 ) -> bool {
-    let head_ref = &pr.head.ref_field;
-    let base_ref = &pr.base.ref_field;
+    let head = &pr.head.ref_field;
+    let base = &pr.base.ref_field;
 
     let pr_title = pr.title.as_ref().unwrap();
 
-    info!("Rebasing \"{pr_title}\" {base_ref} <- {head_ref}...");
+    info!("Rebasing \"{pr_title}\" {base} <- {head}...");
 
-    let head = repo.resolve_reference_from_short_name(head_ref).unwrap();
-    let base = repo.resolve_reference_from_short_name(base_ref).unwrap();
-
-    let result = repo.rebase(&head, &base);
+    let result = repo.rebase(head, base);
 
     if !result {
         return false;
     }
 
-    let remote_head = repo
-        .resolve_reference_from_short_name(&format!("{}/{head_ref}", remote.name()))
+    let head_ref = repo.resolve_reference_from_short_name(head).unwrap();
+
+    let remote_head_ref = repo
+        .resolve_reference_from_short_name(&format!("{}/{head}", remote.name()))
         .unwrap();
 
-    if is_safe_branch(repo, &head, &remote_head) {
+    if head_ref == remote_head_ref {
         info!("No changes for \"{pr_title}\". Not pushing to remote.");
         return false;
     }
 
     info!("Pushing changes to remote...");
 
-    match remote.push(head_ref) {
+    match remote.push(head) {
         Ok(()) => {
             info!("Successfully pushed changes to remote for \"{pr_title}\"");
             true
@@ -86,7 +57,7 @@ pub(crate) fn rebase_and_push(
         Err(e) => {
             error!("Push to remote failed for \"{pr_title}\": {e}. Resetting...");
 
-            let remote_commit = remote_head.peel_to_commit().unwrap();
+            let remote_commit = remote_head_ref.peel_to_commit().unwrap();
 
             repo.reset(remote_commit.as_object(), Hard, None);
 
@@ -134,7 +105,7 @@ fn is_safe_pr(repo: &GitRepository, remote: &GitRemote, pr: &PullRequest) -> boo
 
     let pr_title = pr.title.as_ref().unwrap();
 
-    if !is_safe_branch(repo, &base, &remote_base) {
+    if base != remote_base {
         debug!("Pr \"{pr_title}\" is not safe because base ref \"{base_ref}\" is not safe");
         return false;
     }
@@ -153,7 +124,7 @@ fn is_safe_pr(repo: &GitRepository, remote: &GitRemote, pr: &PullRequest) -> boo
         .resolve_reference_from_short_name(remote_head_ref)
         .unwrap();
 
-    if !is_safe_branch(repo, &head, &remote_head) {
+    if head != remote_head {
         debug!("Pr \"{pr_title}\" is not safe because head ref \"{head_ref}\" is not safe");
         return false;
     }
