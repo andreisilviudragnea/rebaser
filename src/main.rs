@@ -24,7 +24,7 @@ async fn main() {
 
     info!("Primary remote: {}", remote.name());
 
-    remote.fetch().unwrap();
+    remote.fetch();
 
     let all_my_safe_prs = get_all_my_safe_prs(&repo, &remote).await;
 

@@ -5,7 +5,7 @@ use git2::{Cred, Error, FetchOptions, PushOptions, Remote, RemoteCallbacks};
 use crate::git::repository::{GitRepository, RepositoryOps};
 
 pub(crate) trait GitRemoteOps {
-    fn fetch(&mut self) -> Result<(), Error>;
+    fn fetch(&mut self);
 
     fn push(&mut self, head_ref: &str) -> Result<(), Error>;
 
@@ -18,12 +18,12 @@ pub(crate) struct GitRemote<'a>(Remote<'a>);
 
 impl<'a> GitRemote<'a> {
     pub(crate) fn new(repo: &'a GitRepository) -> GitRemote<'a> {
-        GitRemote(repo.get_primary_remote().unwrap())
+        GitRemote(repo.get_primary_remote())
     }
 }
 
 impl GitRemoteOps for GitRemote<'_> {
-    fn fetch(&mut self) -> Result<(), Error> {
+    fn fetch(&mut self) {
         let callbacks = credentials_callback();
 
         let mut fetch_options = FetchOptions::new();
@@ -34,11 +34,13 @@ impl GitRemoteOps for GitRemote<'_> {
         let refspecs = format!("+refs/heads/*:refs/remotes/{remote_name}/*");
         let reflog_msg = format!("Fetched from remote {remote_name}");
 
-        self.0.fetch(
-            &[refspecs],
-            Some(&mut fetch_options),
-            Some(reflog_msg.as_str()),
-        )
+        self.0
+            .fetch(
+                &[refspecs],
+                Some(&mut fetch_options),
+                Some(reflog_msg.as_str()),
+            )
+            .unwrap()
     }
 
     fn push(&mut self, head_ref: &str) -> Result<(), Error> {

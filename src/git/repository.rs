@@ -10,21 +10,17 @@ use log::{debug, error, info};
 use crate::git::remote::{GitRemote, GitRemoteOps};
 
 pub(crate) trait RepositoryOps {
-    fn rebase(&self, head: &Reference, base: &Reference) -> Result<bool, Error>;
+    fn rebase(&self, head: &Reference, base: &Reference) -> bool;
 
-    fn fast_forward<S: AsRef<str> + Display>(
-        &self,
-        remote: &GitRemote,
-        refname: S,
-    ) -> Result<(), Error>;
+    fn fast_forward<S: AsRef<str> + Display>(&self, remote: &GitRemote, refname: S);
 
-    fn log_count(&self, since: &str, until: &str) -> Result<usize, Error>;
+    fn log_count(&self, since: &str, until: &str) -> usize;
 
-    fn switch(&self, reference: &Reference) -> Result<(), Error>;
+    fn switch(&self, reference: &Reference);
 
-    fn get_primary_remote(&self) -> Option<Remote>;
+    fn get_primary_remote(&self) -> Remote;
 
-    fn head(&self) -> Result<Reference<'_>, Error>;
+    fn head(&self) -> Reference<'_>;
 
     fn resolve_reference_from_short_name(&self, refname: &str) -> Result<Reference<'_>, Error>;
 
@@ -33,7 +29,7 @@ pub(crate) trait RepositoryOps {
         target: &Object<'_>,
         kind: ResetType,
         checkout: Option<&mut CheckoutBuilder<'_>>,
-    ) -> Result<(), Error>;
+    );
 }
 
 pub(crate) struct GitRepository(Repository);
@@ -45,13 +41,16 @@ impl GitRepository {
 }
 
 impl RepositoryOps for GitRepository {
-    fn rebase(&self, head: &Reference, base: &Reference) -> Result<bool, Error> {
-        let mut rebase = self.0.rebase(
-            Some(&self.0.reference_to_annotated_commit(head)?),
-            Some(&self.0.reference_to_annotated_commit(base)?),
-            None,
-            None,
-        )?;
+    fn rebase(&self, head: &Reference, base: &Reference) -> bool {
+        let mut rebase = self
+            .0
+            .rebase(
+                Some(&self.0.reference_to_annotated_commit(head).unwrap()),
+                Some(&self.0.reference_to_annotated_commit(base).unwrap()),
+                None,
+                None,
+            )
+            .unwrap();
 
         debug!("Rebase operations: {}", rebase.len());
 
@@ -67,8 +66,8 @@ impl RepositoryOps for GitRepository {
                             Err(e) => {
                                 if e.code() != ErrorCode::Applied {
                                     error!("Error committing: {}. Aborting...", e);
-                                    rebase.abort()?;
-                                    return Ok(false);
+                                    rebase.abort().unwrap();
+                                    return false;
                                 }
                             }
                         };
@@ -91,78 +90,82 @@ impl RepositoryOps for GitRepository {
                 },
                 Err(e) => {
                     error!("Error rebasing :{e}. Aborting...");
-                    rebase.abort()?;
-                    return Ok(false);
+                    rebase.abort().unwrap();
+                    return false;
                 }
             }
         }
 
-        rebase.finish(None)?;
+        rebase.finish(None).unwrap();
 
         info!("Successfully rebased.");
 
-        Ok(true)
+        true
     }
 
-    fn fast_forward<S: AsRef<str> + Display>(
-        &self,
-        remote: &GitRemote,
-        refname: S,
-    ) -> Result<(), Error> {
-        let mut reference = self.0.resolve_reference_from_short_name(refname.as_ref())?;
+    fn fast_forward<S: AsRef<str> + Display>(&self, remote: &GitRemote, refname: S) {
+        let mut reference = self
+            .0
+            .resolve_reference_from_short_name(refname.as_ref())
+            .unwrap();
 
         let remote_reference = self
             .0
-            .resolve_reference_from_short_name(format!("{}/{refname}", remote.name()).as_str())?;
+            .resolve_reference_from_short_name(format!("{}/{refname}", remote.name()).as_str())
+            .unwrap();
 
-        let remote_annotated_commit = self.0.reference_to_annotated_commit(&remote_reference)?;
+        let remote_annotated_commit = self
+            .0
+            .reference_to_annotated_commit(&remote_reference)
+            .unwrap();
 
         let (merge_analysis, _) = self
             .0
-            .merge_analysis_for_ref(&reference, &[&remote_annotated_commit])?;
+            .merge_analysis_for_ref(&reference, &[&remote_annotated_commit])
+            .unwrap();
 
         if merge_analysis.is_up_to_date() {
-            return Ok(());
+            return;
         }
 
         if !merge_analysis.is_fast_forward() {
             panic!("Unexpected merge_analysis={merge_analysis:?}");
         }
 
-        if reference == self.head()? {
+        if reference == self.head() {
             self.0
-                .checkout_tree(&remote_reference.peel(ObjectType::Tree)?, None)?;
+                .checkout_tree(&remote_reference.peel(ObjectType::Tree).unwrap(), None)
+                .unwrap();
             debug!("Updated index and tree");
         }
 
-        reference.set_target(
-            remote_reference.peel(ObjectType::Commit)?.id(),
-            format!("Fast-forward {refname}").as_str(),
-        )?;
+        reference
+            .set_target(
+                remote_reference.peel(ObjectType::Commit).unwrap().id(),
+                format!("Fast-forward {refname}").as_str(),
+            )
+            .unwrap();
 
         info!("Fast-forwarded {refname}");
-
-        Ok(())
     }
 
-    fn log_count(&self, since: &str, until: &str) -> Result<usize, Error> {
-        let mut revwalk = self.0.revwalk()?;
+    fn log_count(&self, since: &str, until: &str) -> usize {
+        let mut revwalk = self.0.revwalk().unwrap();
 
-        revwalk.hide_ref(since)?;
-        revwalk.push_ref(until)?;
+        revwalk.hide_ref(since).unwrap();
+        revwalk.push_ref(until).unwrap();
 
-        Ok(revwalk.into_iter().count())
+        revwalk.into_iter().count()
     }
 
-    fn switch(&self, reference: &Reference) -> Result<(), Error> {
+    fn switch(&self, reference: &Reference) {
         self.0
-            .checkout_tree(&reference.peel(ObjectType::Tree)?, None)?;
-        self.0.set_head(reference.name().unwrap())?;
-
-        Ok(())
+            .checkout_tree(&reference.peel(ObjectType::Tree).unwrap(), None)
+            .unwrap();
+        self.0.set_head(reference.name().unwrap()).unwrap();
     }
 
-    fn get_primary_remote(&self) -> Option<Remote> {
+    fn get_primary_remote(&self) -> Remote {
         let remotes_array = self.0.remotes().unwrap();
 
         let remotes = remotes_array
@@ -170,25 +173,22 @@ impl RepositoryOps for GitRepository {
             .map(|it| it.unwrap())
             .collect::<Vec<&str>>();
 
-        return match remotes.len() {
-            1 => Some(self.0.find_remote(remotes[0]).unwrap()),
+        match remotes.len() {
+            1 => self.0.find_remote(remotes[0]).unwrap(),
             2 => {
                 let _origin_remote = remotes.iter().find(|&&remote| remote == "origin").unwrap();
                 let upstream_remote = remotes
                     .iter()
                     .find(|&&remote| remote == "upstream")
                     .unwrap();
-                Some(self.0.find_remote(*upstream_remote).unwrap())
+                self.0.find_remote(*upstream_remote).unwrap()
             }
-            _ => {
-                error!("Only 1 or 2 remotes supported.");
-                None
-            }
-        };
+            _ => panic!("Only 1 or 2 remotes supported."),
+        }
     }
 
-    fn head(&self) -> Result<Reference<'_>, Error> {
-        self.0.head()
+    fn head(&self) -> Reference<'_> {
+        self.0.head().unwrap()
     }
 
     fn resolve_reference_from_short_name(&self, refname: &str) -> Result<Reference<'_>, Error> {
@@ -200,7 +200,7 @@ impl RepositoryOps for GitRepository {
         target: &Object<'_>,
         kind: ResetType,
         checkout: Option<&mut CheckoutBuilder<'_>>,
-    ) -> Result<(), Error> {
-        self.0.reset(target, kind, checkout)
+    ) {
+        self.0.reset(target, kind, checkout).unwrap()
     }
 }

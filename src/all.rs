@@ -41,8 +41,8 @@ fn compare_refs(repo: &GitRepository, head: &Reference, base: &Reference) -> (us
     let base_commit_name = base.name().unwrap();
 
     (
-        repo.log_count(base_commit_name, head_commit_name).unwrap(),
-        repo.log_count(head_commit_name, base_commit_name).unwrap(),
+        repo.log_count(base_commit_name, head_commit_name),
+        repo.log_count(head_commit_name, base_commit_name),
     )
 }
 
@@ -61,7 +61,7 @@ pub(crate) fn rebase_and_push(
     let head = repo.resolve_reference_from_short_name(head_ref).unwrap();
     let base = repo.resolve_reference_from_short_name(base_ref).unwrap();
 
-    let result = repo.rebase(&head, &base).unwrap();
+    let result = repo.rebase(&head, &base);
 
     if !result {
         return false;
@@ -88,7 +88,7 @@ pub(crate) fn rebase_and_push(
 
             let remote_commit = remote_head.peel_to_commit().unwrap();
 
-            repo.reset(remote_commit.as_object(), Hard, None).unwrap();
+            repo.reset(remote_commit.as_object(), Hard, None);
 
             info!("Successfully reset.");
 
@@ -98,7 +98,7 @@ pub(crate) fn rebase_and_push(
 }
 
 pub(crate) fn with_revert_to_current_branch<F: FnMut()>(repo: &GitRepository, mut f: F) {
-    let current_head = repo.head().unwrap();
+    let current_head = repo.head();
 
     let name = current_head.name().unwrap();
 
@@ -106,13 +106,13 @@ pub(crate) fn with_revert_to_current_branch<F: FnMut()>(repo: &GitRepository, mu
 
     f();
 
-    debug!("Current HEAD is {}", repo.head().unwrap().name().unwrap());
+    debug!("Current HEAD is {}", repo.head().name().unwrap());
 
     let reference = repo.resolve_reference_from_short_name(name).unwrap();
 
-    repo.switch(&reference).unwrap();
+    repo.switch(&reference);
 
-    debug!("Current HEAD is {}", repo.head().unwrap().name().unwrap());
+    debug!("Current HEAD is {}", repo.head().name().unwrap());
 }
 
 fn is_safe_pr(repo: &GitRepository, remote: &GitRemote, pr: &PullRequest) -> bool {
@@ -198,8 +198,7 @@ pub(crate) async fn get_all_my_safe_prs(
 
     debug!("Github repo: {github_repo:?}");
 
-    repo.fast_forward(remote, github_repo.default_branch.as_ref().unwrap())
-        .unwrap();
+    repo.fast_forward(remote, github_repo.default_branch.as_ref().unwrap());
 
     let all_prs = github.get_all_open_prs(&owner, &repo_name).await;
 
