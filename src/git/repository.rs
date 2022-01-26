@@ -102,7 +102,7 @@ impl GitRepository {
                     }
                 },
                 Err(e) => {
-                    error!("Error rebasing :{e}. Aborting...");
+                    error!("Error rebasing {head} onto {base}: {e}. Aborting...");
                     rebase.abort().unwrap();
                     return false;
                 }
@@ -123,8 +123,24 @@ impl GitRepository {
             .arg(head)
             .output()
             .unwrap();
+
         debug!("Native rebase: {:?}", output);
-        output.status.success()
+
+        let success = output.status.success();
+
+        if !success {
+            error!("Error rebasing {head} onto {base}. Aborting...");
+
+            assert!(Command::new("git")
+                .arg("rebase")
+                .arg("--abort")
+                .output()
+                .unwrap()
+                .status
+                .success());
+        }
+
+        success
     }
 }
 

@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 git2 = "0.13.25"
-octocrab = "0.15.3"
+octocrab = "0.15.4"
 config = "0.11.0"
 serde_json = "1.0.78"
 tokio = { version = "1.15.0", features = ["full"] }
