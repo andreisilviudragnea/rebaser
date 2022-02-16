@@ -1,4 +1,4 @@
-on: [push]
+on: [ push ]
 
 name: CI
 
@@ -15,6 +15,10 @@ jobs:
           toolchain: stable
       - name: Cache Dependencies
         uses: Swatinem/rust-cache@v1.3.0
+      - uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all --check
       - uses: actions-rs/cargo@v1
         with:
           command: clippy
