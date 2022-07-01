@@ -24,10 +24,8 @@ impl<'a> GitRemote<'a> {
 
 impl GitRemoteOps for GitRemote<'_> {
     fn fetch(&mut self) {
-        let callbacks = credentials_callback();
-
         let mut fetch_options = FetchOptions::new();
-        fetch_options.remote_callbacks(callbacks);
+        fetch_options.remote_callbacks(credentials_callback());
 
         let remote_name = self.0.name().unwrap();
 
