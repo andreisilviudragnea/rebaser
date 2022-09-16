@@ -33,30 +33,34 @@ pub(crate) trait RepositoryOps {
     );
 }
 
-pub(crate) struct GitRepository(Repository);
+pub(crate) struct GitRepository {
+    repository: Repository
+}
 
 impl GitRepository {
     pub(crate) fn new() -> GitRepository {
-        GitRepository(Repository::discover(".").unwrap())
+        GitRepository {
+            repository: Repository::discover(".").unwrap()
+        }
     }
 
     fn libgit2_rebase(&self, head: &str, base: &str) -> bool {
         let mut rebase = self
-            .0
+            .repository
             .rebase(
                 Some(
                     &self
-                        .0
+                        .repository
                         .reference_to_annotated_commit(
-                            &self.0.resolve_reference_from_short_name(head).unwrap(),
+                            &self.repository.resolve_reference_from_short_name(head).unwrap(),
                         )
                         .unwrap(),
                 ),
                 Some(
                     &self
-                        .0
+                        .repository
                         .reference_to_annotated_commit(
-                            &self.0.resolve_reference_from_short_name(base).unwrap(),
+                            &self.repository.resolve_reference_from_short_name(base).unwrap(),
                         )
                         .unwrap(),
                 ),
@@ -71,7 +75,7 @@ impl GitRepository {
             match op {
                 Ok(operation) => match operation.kind().unwrap() {
                     RebaseOperationType::Pick => {
-                        let commit = self.0.find_commit(operation.id()).unwrap();
+                        let commit = self.repository.find_commit(operation.id()).unwrap();
                         match rebase.commit(None, &commit.committer(), None) {
                             Ok(oid) => {
                                 debug!("Successfully committed {}", oid)
@@ -155,22 +159,22 @@ impl RepositoryOps for GitRepository {
 
     fn fast_forward<S: AsRef<str> + Display>(&self, remote: &GitRemote, refname: S) {
         let mut reference = self
-            .0
+            .repository
             .resolve_reference_from_short_name(refname.as_ref())
             .unwrap();
 
         let remote_reference = self
-            .0
+            .repository
             .resolve_reference_from_short_name(format!("{}/{refname}", remote.name()).as_str())
             .unwrap();
 
         let remote_annotated_commit = self
-            .0
+            .repository
             .reference_to_annotated_commit(&remote_reference)
             .unwrap();
 
         let (merge_analysis, _) = self
-            .0
+            .repository
             .merge_analysis_for_ref(&reference, &[&remote_annotated_commit])
             .unwrap();
 
@@ -183,7 +187,7 @@ impl RepositoryOps for GitRepository {
         }
 
         if reference == self.head() {
-            self.0
+            self.repository
                 .checkout_tree(&remote_reference.peel(ObjectType::Tree).unwrap(), None)
                 .unwrap();
             debug!("Updated index and tree");
@@ -200,7 +204,7 @@ impl RepositoryOps for GitRepository {
     }
 
     fn log_count(&self, since: &str, until: &str) -> usize {
-        let mut revwalk = self.0.revwalk().unwrap();
+        let mut revwalk = self.repository.revwalk().unwrap();
 
         revwalk.hide_ref(since).unwrap();
         revwalk.push_ref(until).unwrap();
@@ -209,14 +213,14 @@ impl RepositoryOps for GitRepository {
     }
 
     fn switch(&self, reference: &Reference) {
-        self.0
+        self.repository
             .checkout_tree(&reference.peel(ObjectType::Tree).unwrap(), None)
             .unwrap();
-        self.0.set_head(reference.name().unwrap()).unwrap();
+        self.repository.set_head(reference.name().unwrap()).unwrap();
     }
 
     fn get_primary_remote(&self) -> Remote {
-        let remotes_array = self.0.remotes().unwrap();
+        let remotes_array = self.repository.remotes().unwrap();
 
         let remotes = remotes_array
             .iter()
@@ -224,25 +228,25 @@ impl RepositoryOps for GitRepository {
             .collect::<Vec<&str>>();
 
         match remotes.len() {
-            1 => self.0.find_remote(remotes[0]).unwrap(),
+            1 => self.repository.find_remote(remotes[0]).unwrap(),
             2 => {
                 let _origin_remote = remotes.iter().find(|&&remote| remote == "origin").unwrap();
                 let upstream_remote = remotes
                     .iter()
                     .find(|&&remote| remote == "upstream")
                     .unwrap();
-                self.0.find_remote(upstream_remote).unwrap()
+                self.repository.find_remote(upstream_remote).unwrap()
             }
             _ => panic!("Only 1 or 2 remotes supported."),
         }
     }
 
     fn head(&self) -> Reference<'_> {
-        self.0.head().unwrap()
+        self.repository.head().unwrap()
     }
 
     fn resolve_reference_from_short_name(&self, refname: &str) -> Result<Reference<'_>, Error> {
-        self.0.resolve_reference_from_short_name(refname)
+        self.repository.resolve_reference_from_short_name(refname)
     }
 
     fn reset(
@@ -251,6 +255,6 @@ impl RepositoryOps for GitRepository {
         kind: ResetType,
         checkout: Option<&mut CheckoutBuilder<'_>>,
     ) {
-        self.0.reset(target, kind, checkout).unwrap()
+        self.repository.reset(target, kind, checkout).unwrap()
     }
 }
