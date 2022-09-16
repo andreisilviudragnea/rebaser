@@ -2,7 +2,6 @@ use git2::Reference;
 use git2::ResetType::Hard;
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
-use regex::Regex;
 
 use crate::git::remote::{GitRemote, GitRemoteOps};
 use crate::git::repository::{GitRepository, RepositoryOps};
@@ -141,28 +140,11 @@ fn is_safe_pr(repo: &GitRepository, remote: &GitRemote, pr: &PullRequest) -> boo
     true
 }
 
-fn get_host_owner_repo_name(remote: &GitRemote) -> (String, String, String) {
-    let remote_url = remote.url();
-    debug!("remote_url: {remote_url}");
-
-    let regex = Regex::new(r".*@(.*):(.*)/(.*).git").unwrap();
-
-    let captures = regex.captures(remote_url).unwrap();
-
-    let host = &captures[1];
-    let owner = &captures[2];
-    let repo_name = &captures[3];
-
-    debug!("{host}:{owner}/{repo_name}");
-
-    (host.to_owned(), owner.to_owned(), repo_name.to_owned())
-}
-
 pub(crate) async fn get_all_my_safe_prs(
     repo: &GitRepository,
     remote: &GitRemote<'_>,
 ) -> Vec<PullRequest> {
-    let (host, owner, repo_name) = get_host_owner_repo_name(remote);
+    let (host, owner, repo_name) = remote.get_host_owner_repo_name();
 
     let github = GithubClient::new(&host);
 

@@ -1,6 +1,8 @@
 use std::env;
 
 use git2::{Cred, Error, FetchOptions, PushOptions, Remote, RemoteCallbacks};
+use log::debug;
+use regex::Regex;
 
 use crate::git::repository::{GitRepository, RepositoryOps};
 
@@ -11,7 +13,7 @@ pub(crate) trait GitRemoteOps {
 
     fn name(&self) -> &str;
 
-    fn url(&self) -> &str;
+    fn get_host_owner_repo_name(&self) -> (String, String, String);
 }
 
 pub(crate) struct GitRemote<'a>(Remote<'a>);
@@ -54,8 +56,21 @@ impl GitRemoteOps for GitRemote<'_> {
         self.0.name().unwrap()
     }
 
-    fn url(&self) -> &str {
-        self.0.url().unwrap()
+    fn get_host_owner_repo_name(&self) -> (String, String, String) {
+        let remote_url = self.0.url().unwrap();
+        debug!("remote_url: {remote_url}");
+
+        let regex = Regex::new(r".*@(.*):(.*)/(.*).git").unwrap();
+
+        let captures = regex.captures(remote_url).unwrap();
+
+        let host = &captures[1];
+        let owner = &captures[2];
+        let repo_name = &captures[3];
+
+        debug!("{host}:{owner}/{repo_name}");
+
+        (host.to_owned(), owner.to_owned(), repo_name.to_owned())
     }
 }
 
