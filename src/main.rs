@@ -1,3 +1,4 @@
+use git2::Repository;
 use log::{info, LevelFilter};
 use simple_logger::SimpleLogger;
 
@@ -18,7 +19,9 @@ async fn main() {
         .init()
         .unwrap();
 
-    let repo = GitRepository::new();
+    let git_repo = Repository::discover(".").unwrap();
+
+    let repo = GitRepository::new(&git_repo);
 
     let mut remote = GitRemote::new(&repo);
 
@@ -26,7 +29,7 @@ async fn main() {
 
     remote.fetch();
 
-    let all_my_safe_prs = get_all_my_safe_prs(&repo, &remote).await;
+    let all_my_safe_prs = get_all_my_safe_prs(&repo).await;
 
     with_revert_to_current_branch(&repo, || loop {
         let mut changes_propagated = false;

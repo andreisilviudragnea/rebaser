@@ -7,13 +7,13 @@ use git2::{
     ResetType,
 };
 use log::{debug, error, info};
-
-use crate::git::remote::{GitRemote, GitRemoteOps};
+use octocrab::models::pulls::PullRequest;
+use regex::Regex;
 
 pub(crate) trait RepositoryOps {
     fn rebase(&self, head: &str, base: &str) -> bool;
 
-    fn fast_forward<S: AsRef<str> + Display>(&self, remote: &GitRemote, refname: S);
+    fn fast_forward<S: AsRef<str> + Display>(&self, refname: S);
 
     fn log_count(&self, since: &str, until: &str) -> usize;
 
@@ -31,17 +31,49 @@ pub(crate) trait RepositoryOps {
         kind: ResetType,
         checkout: Option<&mut CheckoutBuilder<'_>>,
     );
+
+    fn get_host_owner_repo_name(&self) -> (String, String, String);
+
+    fn is_safe_pr(&self, pr: &PullRequest) -> bool;
 }
 
-pub(crate) struct GitRepository {
-    repository: Repository
+pub(crate) struct GitRepository<'repo> {
+    repository: &'repo Repository,
+    primary_remote: Remote<'repo>,
 }
 
-impl GitRepository {
-    pub(crate) fn new() -> GitRepository {
+impl GitRepository<'_> {
+    pub(crate) fn new(repository: &Repository) -> GitRepository {
         GitRepository {
-            repository: Repository::discover(".").unwrap()
+            repository,
+            primary_remote: GitRepository::get_primary_remote(repository),
         }
+    }
+
+    fn get_primary_remote(repository: &Repository) -> Remote {
+        let remotes_array = repository.remotes().unwrap();
+
+        let remotes = remotes_array
+            .iter()
+            .map(|it| it.unwrap())
+            .collect::<Vec<&str>>();
+
+        let primary_remote = match remotes.len() {
+            1 => repository.find_remote(remotes[0]).unwrap(),
+            2 => {
+                let _origin_remote = remotes.iter().find(|&&remote| remote == "origin").unwrap();
+                let upstream_remote = remotes
+                    .iter()
+                    .find(|&&remote| remote == "upstream")
+                    .unwrap();
+                repository.find_remote(upstream_remote).unwrap()
+            }
+            _ => panic!("Only 1 or 2 remotes supported."),
+        };
+
+        info!("Primary remote: {}", primary_remote.name().unwrap());
+
+        primary_remote
     }
 
     fn libgit2_rebase(&self, head: &str, base: &str) -> bool {
@@ -52,7 +84,10 @@ impl GitRepository {
                     &self
                         .repository
                         .reference_to_annotated_commit(
-                            &self.repository.resolve_reference_from_short_name(head).unwrap(),
+                            &self
+                                .repository
+                                .resolve_reference_from_short_name(head)
+                                .unwrap(),
                         )
                         .unwrap(),
                 ),
@@ -60,7 +95,10 @@ impl GitRepository {
                     &self
                         .repository
                         .reference_to_annotated_commit(
-                            &self.repository.resolve_reference_from_short_name(base).unwrap(),
+                            &self
+                                .repository
+                                .resolve_reference_from_short_name(base)
+                                .unwrap(),
                         )
                         .unwrap(),
                 ),
@@ -148,7 +186,7 @@ impl GitRepository {
     }
 }
 
-impl RepositoryOps for GitRepository {
+impl RepositoryOps for GitRepository<'_> {
     fn rebase(&self, head: &str, base: &str) -> bool {
         if cfg!(feature = "native-rebase") {
             self.native_rebase(head, base)
@@ -157,7 +195,7 @@ impl RepositoryOps for GitRepository {
         }
     }
 
-    fn fast_forward<S: AsRef<str> + Display>(&self, remote: &GitRemote, refname: S) {
+    fn fast_forward<S: AsRef<str> + Display>(&self, refname: S) {
         let mut reference = self
             .repository
             .resolve_reference_from_short_name(refname.as_ref())
@@ -165,7 +203,9 @@ impl RepositoryOps for GitRepository {
 
         let remote_reference = self
             .repository
-            .resolve_reference_from_short_name(format!("{}/{refname}", remote.name()).as_str())
+            .resolve_reference_from_short_name(
+                format!("{}/{refname}", self.primary_remote.name().unwrap()).as_str(),
+            )
             .unwrap();
 
         let remote_annotated_commit = self
@@ -257,4 +297,86 @@ impl RepositoryOps for GitRepository {
     ) {
         self.repository.reset(target, kind, checkout).unwrap()
     }
+
+    fn get_host_owner_repo_name(&self) -> (String, String, String) {
+        let remote_url = self.primary_remote.url().unwrap();
+        debug!("remote_url: {remote_url}");
+
+        let regex = Regex::new(r".*@(.*):(.*)/(.*).git").unwrap();
+
+        let captures = regex.captures(remote_url).unwrap();
+
+        let host = &captures[1];
+        let owner = &captures[2];
+        let repo_name = &captures[3];
+
+        debug!("{host}:{owner}/{repo_name}");
+
+        (host.to_owned(), owner.to_owned(), repo_name.to_owned())
+    }
+
+    fn is_safe_pr(&self, pr: &PullRequest) -> bool {
+        let base = &pr.base.ref_field;
+
+        let base_ref = match self.resolve_reference_from_short_name(base) {
+            Ok(reference) => reference,
+            Err(e) => {
+                error!("Error resolving reference from shortname for {base}: {e}");
+                return false;
+            }
+        };
+
+        let remote_name = self.primary_remote.name().unwrap();
+
+        let remote_base_ref = self
+            .resolve_reference_from_short_name(&format!("{}/{base}", remote_name))
+            .unwrap();
+
+        let pr_title = pr.title.as_ref().unwrap();
+
+        if base_ref != remote_base_ref {
+            debug!("Pr \"{pr_title}\" is not safe because base ref \"{base}\" is not safe");
+            return false;
+        }
+
+        let head = &pr.head.ref_field;
+
+        let head_ref = match self.resolve_reference_from_short_name(head) {
+            Ok(reference) => reference,
+            Err(e) => {
+                error!("Error resolving reference from shortname for {head}: {e}");
+                return false;
+            }
+        };
+
+        let remote_head_ref = self
+            .resolve_reference_from_short_name(&format!("{}/{}", remote_name, head))
+            .unwrap();
+
+        if head_ref != remote_head_ref {
+            debug!("Pr \"{pr_title}\" is not safe because head ref \"{head}\" is not safe");
+            return false;
+        }
+
+        debug!("\"{pr_title}\" {base} <- {head}");
+
+        let (number_of_commits_ahead, number_of_commits_behind) =
+            compare_refs(self, &head_ref, &base_ref);
+
+        debug!(
+        "\"{head}\" is {number_of_commits_ahead} commits ahead, {number_of_commits_behind} commits behind \"{base}\""
+    );
+
+        true
+    }
+}
+
+fn compare_refs(repo: &GitRepository, head: &Reference, base: &Reference) -> (usize, usize) {
+    let head_commit_name = head.name().unwrap();
+    let base_commit_name = base.name().unwrap();
+
+    (
+        repo.log_count(base_commit_name, head_commit_name),
+        repo.log_count(head_commit_name, base_commit_name),
+    )
 }
