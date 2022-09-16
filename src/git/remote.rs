@@ -14,9 +14,11 @@ pub(crate) trait GitRemoteOps {
     fn name(&self) -> &str;
 
     fn get_host_owner_repo_name(&self) -> (String, String, String);
+
+    fn url(&self) -> &str;
 }
 
-pub(crate) struct GitRemote<'a>(Remote<'a>);
+pub(crate) struct GitRemote<'a>(pub Remote<'a>);
 
 impl<'a> GitRemote<'a> {
     pub(crate) fn new(repo: &'a GitRepository) -> GitRemote<'a> {
@@ -71,6 +73,10 @@ impl GitRemoteOps for GitRemote<'_> {
         debug!("{host}:{owner}/{repo_name}");
 
         (host.to_owned(), owner.to_owned(), repo_name.to_owned())
+    }
+
+    fn url(&self) -> &str {
+        self.0.url().unwrap()
     }
 }
 

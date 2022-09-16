@@ -9,6 +9,7 @@ use git2::{
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
 use regex::Regex;
+use crate::{GitRemote, GitRemoteOps};
 
 pub(crate) trait RepositoryOps {
     fn rebase(&self, head: &str, base: &str) -> bool;
@@ -39,14 +40,14 @@ pub(crate) trait RepositoryOps {
 
 pub(crate) struct GitRepository<'repo> {
     repository: &'repo Repository,
-    primary_remote: Remote<'repo>,
+    primary_remote: GitRemote<'repo>,
 }
 
 impl GitRepository<'_> {
     pub(crate) fn new(repository: &Repository) -> GitRepository {
         GitRepository {
             repository,
-            primary_remote: GitRepository::get_primary_remote(repository),
+            primary_remote: GitRemote(GitRepository::get_primary_remote(repository)),
         }
     }
 
@@ -204,7 +205,7 @@ impl RepositoryOps for GitRepository<'_> {
         let remote_reference = self
             .repository
             .resolve_reference_from_short_name(
-                format!("{}/{refname}", self.primary_remote.name().unwrap()).as_str(),
+                format!("{}/{refname}", self.primary_remote.name()).as_str(),
             )
             .unwrap();
 
@@ -299,7 +300,7 @@ impl RepositoryOps for GitRepository<'_> {
     }
 
     fn get_host_owner_repo_name(&self) -> (String, String, String) {
-        let remote_url = self.primary_remote.url().unwrap();
+        let remote_url = self.primary_remote.url();
         debug!("remote_url: {remote_url}");
 
         let regex = Regex::new(r".*@(.*):(.*)/(.*).git").unwrap();
@@ -326,7 +327,7 @@ impl RepositoryOps for GitRepository<'_> {
             }
         };
 
-        let remote_name = self.primary_remote.name().unwrap();
+        let remote_name = self.primary_remote.name();
 
         let remote_base_ref = self
             .resolve_reference_from_short_name(&format!("{}/{base}", remote_name))
