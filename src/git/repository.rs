@@ -231,7 +231,7 @@ impl RepositoryOps for GitRepository {
                     .iter()
                     .find(|&&remote| remote == "upstream")
                     .unwrap();
-                self.0.find_remote(*upstream_remote).unwrap()
+                self.0.find_remote(upstream_remote).unwrap()
             }
             _ => panic!("Only 1 or 2 remotes supported."),
         }
