@@ -13,7 +13,7 @@ use octocrab::models::pulls::PullRequest;
 use regex::Regex;
 
 pub(crate) trait RepositoryOps {
-    fn rebase(&self, head: &str, base: &str) -> bool;
+    fn rebase(&self, pr: &PullRequest) -> bool;
 
     fn log_count(&self, since: &str, until: &str) -> usize;
 
@@ -359,7 +359,14 @@ impl GitRepository<'_> {
 }
 
 impl RepositoryOps for GitRepository<'_> {
-    fn rebase(&self, head: &str, base: &str) -> bool {
+    fn rebase(&self, pr: &PullRequest) -> bool {
+        let head = &pr.head.ref_field;
+        let base = &pr.base.ref_field;
+
+        let pr_title = pr.title.as_ref().unwrap();
+
+        info!("Rebasing \"{pr_title}\" {base} <- {head}...");
+
         if cfg!(feature = "native-rebase") {
             self.native_rebase(head, base)
         } else {
