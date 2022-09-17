@@ -1,8 +1,6 @@
 use std::fmt::Display;
 use std::process::Command;
 
-use crate::github::{Github, GithubClient};
-use crate::GitRemote;
 use git2::build::CheckoutBuilder;
 use git2::BranchType::Local;
 use git2::{
@@ -10,6 +8,8 @@ use git2::{
 };
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
+
+use crate::GitRemote;
 
 pub(crate) trait RepositoryOps {
     fn rebase(&self, pr: &PullRequest) -> bool;
@@ -67,44 +67,6 @@ impl GitRepository<'_> {
             self.log_count(base_commit_name, head_commit_name),
             self.log_count(head_commit_name, base_commit_name),
         )
-    }
-}
-
-pub(crate) struct GitRepo<'repo> {
-    pub(crate) repository: &'repo GitRepository<'repo>,
-}
-
-impl GitRepo<'_> {
-    pub(crate) async fn get_all_my_safe_prs(
-        &self,
-        github: &GithubClient,
-        owner: &str,
-        repo: &str,
-    ) -> Vec<PullRequest> {
-        let all_my_open_prs = github.get_all_my_open_prs(owner, repo).await;
-
-        let num_of_my_open_prs = all_my_open_prs.len();
-
-        let my_safe_prs = all_my_open_prs
-            .into_iter()
-            .filter(|pr| self.repository.is_safe_pr(pr))
-            .collect::<Vec<PullRequest>>();
-
-        info!(
-            "Going to rebase {}/{num_of_my_open_prs} safe pull requests:",
-            my_safe_prs.len()
-        );
-
-        my_safe_prs.iter().for_each(|pr| {
-            info!(
-                "\"{}\" {} <- {}",
-                pr.title.as_ref().unwrap(),
-                pr.base.ref_field,
-                pr.head.ref_field
-            );
-        });
-
-        my_safe_prs
     }
 }
 
