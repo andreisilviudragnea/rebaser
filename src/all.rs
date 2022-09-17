@@ -1,5 +1,5 @@
 use git2::ResetType::Hard;
-use log::{debug, error, info};
+use log::{error, info};
 use octocrab::models::pulls::PullRequest;
 
 use crate::git::remote::{GitRemote, GitRemoteOps};
@@ -54,22 +54,4 @@ pub(crate) fn rebase_and_push(
             false
         }
     }
-}
-
-pub(crate) fn with_revert_to_current_branch<F: FnMut()>(repo: &GitRepository, mut f: F) {
-    let current_head = repo.head();
-
-    let name = current_head.name().unwrap();
-
-    debug!("Current HEAD is {name}");
-
-    f();
-
-    debug!("Current HEAD is {}", repo.head().name().unwrap());
-
-    let reference = repo.resolve_reference_from_short_name(name).unwrap();
-
-    repo.switch(&reference);
-
-    debug!("Current HEAD is {}", repo.head().name().unwrap());
 }

@@ -37,6 +37,26 @@ pub(crate) struct GitRepository<'repo> {
     repository: &'repo Repository,
 }
 
+impl GitRepository<'_> {
+    pub(crate) fn with_revert_to_current_branch<F: FnMut()>(&self, mut f: F) {
+        let current_head = self.head();
+
+        let name = current_head.name().unwrap();
+
+        debug!("Current HEAD is {name}");
+
+        f();
+
+        debug!("Current HEAD is {}", self.head().name().unwrap());
+
+        let reference = self.resolve_reference_from_short_name(name).unwrap();
+
+        self.switch(&reference);
+
+        debug!("Current HEAD is {}", self.head().name().unwrap());
+    }
+}
+
 pub(crate) struct GitRepo<'repo> {
     pub(crate) repository: &'repo GitRepository<'repo>,
     pub(crate) primary_remote: &'repo GitRemote<'repo>,
