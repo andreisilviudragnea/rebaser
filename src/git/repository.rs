@@ -32,6 +32,8 @@ pub(crate) trait RepositoryOps {
     );
 
     fn fast_forward<S: AsRef<str> + Display>(&self, refname: S);
+
+    fn is_safe_pr(&self, pr: &PullRequest) -> bool;
 }
 
 pub(crate) struct GitRepository<'repo> {
@@ -89,7 +91,7 @@ impl GitRepo<'_> {
 
         let my_safe_prs = my_open_prs
             .into_iter()
-            .filter(|pr| self.is_safe_pr(pr))
+            .filter(|pr| self.repository.is_safe_pr(pr))
             .collect::<Vec<PullRequest>>();
 
         info!(
@@ -107,61 +109,6 @@ impl GitRepo<'_> {
         });
 
         my_safe_prs
-    }
-}
-
-pub(crate) trait GitRepoOps {
-    fn is_safe_pr(&self, pr: &PullRequest) -> bool;
-}
-
-impl GitRepoOps for GitRepo<'_> {
-    fn is_safe_pr(&self, pr: &PullRequest) -> bool {
-        let base = &pr.base.ref_field;
-
-        let local_base_branch = match self.repository.repository.find_branch(base, Local) {
-            Ok(branch) => branch,
-            Err(e) => {
-                error!("Error finding local base branch {base}: {e}");
-                return false;
-            }
-        };
-
-        let local_base_ref = local_base_branch.get();
-
-        let pr_title = pr.title.as_ref().unwrap();
-
-        if local_base_ref != local_base_branch.upstream().unwrap().get() {
-            debug!("Pr \"{pr_title}\" is not safe because base ref \"{base}\" is not safe");
-            return false;
-        }
-
-        let head = &pr.head.ref_field;
-
-        let local_head_branch = match self.repository.repository.find_branch(head, Local) {
-            Ok(branch) => branch,
-            Err(e) => {
-                error!("Error finding local head branch {base}: {e}");
-                return false;
-            }
-        };
-
-        let local_head_ref = local_head_branch.get();
-
-        if local_head_ref != local_head_branch.upstream().unwrap().get() {
-            debug!("Pr \"{pr_title}\" is not safe because head ref \"{head}\" is not safe");
-            return false;
-        }
-
-        debug!("\"{pr_title}\" {base} <- {head}");
-
-        let (number_of_commits_ahead, number_of_commits_behind) =
-            compare_refs(self.repository, local_head_ref, local_base_ref);
-
-        debug!(
-        "\"{head}\" is {number_of_commits_ahead} commits ahead, {number_of_commits_behind} commits behind \"{base}\""
-    );
-
-        true
     }
 }
 
@@ -400,6 +347,55 @@ impl RepositoryOps for GitRepository<'_> {
             .unwrap();
 
         info!("Fast-forwarded {refname}");
+    }
+
+    fn is_safe_pr(&self, pr: &PullRequest) -> bool {
+        let base = &pr.base.ref_field;
+
+        let local_base_branch = match self.repository.find_branch(base, Local) {
+            Ok(branch) => branch,
+            Err(e) => {
+                error!("Error finding local base branch {base}: {e}");
+                return false;
+            }
+        };
+
+        let local_base_ref = local_base_branch.get();
+
+        let pr_title = pr.title.as_ref().unwrap();
+
+        if local_base_ref != local_base_branch.upstream().unwrap().get() {
+            debug!("Pr \"{pr_title}\" is not safe because base ref \"{base}\" is not safe");
+            return false;
+        }
+
+        let head = &pr.head.ref_field;
+
+        let local_head_branch = match self.repository.find_branch(head, Local) {
+            Ok(branch) => branch,
+            Err(e) => {
+                error!("Error finding local head branch {base}: {e}");
+                return false;
+            }
+        };
+
+        let local_head_ref = local_head_branch.get();
+
+        if local_head_ref != local_head_branch.upstream().unwrap().get() {
+            debug!("Pr \"{pr_title}\" is not safe because head ref \"{head}\" is not safe");
+            return false;
+        }
+
+        debug!("\"{pr_title}\" {base} <- {head}");
+
+        let (number_of_commits_ahead, number_of_commits_behind) =
+            compare_refs(self, local_head_ref, local_base_ref);
+
+        debug!(
+        "\"{head}\" is {number_of_commits_ahead} commits ahead, {number_of_commits_behind} commits behind \"{base}\""
+    );
+
+        true
     }
 }
 
