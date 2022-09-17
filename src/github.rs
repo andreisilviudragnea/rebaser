@@ -9,8 +9,8 @@ use toml::Value;
 
 #[async_trait]
 pub(crate) trait Github {
-    async fn get_repo(&self, owner: &str, repo_name: &str) -> Repository;
-    async fn get_all_open_prs(&self, owner: &str, repo_name: &str) -> Vec<PullRequest>;
+    async fn get_repo(&self, owner: &str, repo: &str) -> Repository;
+    async fn get_all_open_prs(&self, owner: &str, repo: &str) -> Vec<PullRequest>;
     async fn get_current_user(&self) -> User;
 }
 
@@ -69,36 +69,29 @@ fn get_oauth_token(host: &str) -> String {
 
 #[async_trait]
 impl Github for GithubClient {
-    async fn get_repo(&self, owner: &str, repo_name: &str) -> Repository {
+    async fn get_repo(&self, owner: &str, repo: &str) -> Repository {
         self.octocrab
-            .get(format!("repos/{owner}/{repo_name}"), None::<&()>)
+            .get(format!("repos/{owner}/{repo}"), None::<&()>)
             .await
             .unwrap()
     }
 
-    async fn get_all_open_prs(&self, owner: &str, repo_name: &str) -> Vec<PullRequest> {
-        let pull_request_handler = self.octocrab.pulls(owner, repo_name);
-
-        let mut page = pull_request_handler
+    async fn get_all_open_prs(&self, owner: &str, repo: &str) -> Vec<PullRequest> {
+        let mut page = self
+            .octocrab
+            .pulls(owner, repo)
             .list()
             .state(State::Open)
             .send()
             .await
             .unwrap();
 
-        let mut all_prs = page.items.into_iter().collect::<Vec<PullRequest>>();
+        let mut all_prs = page.items;
 
-        while let Some(url) = &page.next {
-            page = self
-                .octocrab
-                .get_page(&Some(url.to_owned()))
-                .await
-                .unwrap()
-                .unwrap();
+        while let Some(url) = page.next {
+            page = self.octocrab.get_page(&Some(url)).await.unwrap().unwrap();
 
-            for item in page.items {
-                all_prs.push(item)
-            }
+            all_prs.append(&mut page.items);
         }
 
         all_prs
