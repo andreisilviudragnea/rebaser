@@ -6,6 +6,7 @@ use git::remote::{GitRemote, GitRemoteOps};
 use git::repository::GitRepository;
 
 use crate::all::{get_all_my_safe_prs, rebase_and_push, with_revert_to_current_branch};
+use crate::git::repository::GitRepo;
 
 mod all;
 mod git;
@@ -29,7 +30,12 @@ async fn main() {
 
     remote.fetch();
 
-    let all_my_safe_prs = get_all_my_safe_prs(&repo).await;
+    let git_repo = GitRepo {
+        repository: &repo,
+        primary_remote: &remote,
+    };
+
+    let all_my_safe_prs = get_all_my_safe_prs(&git_repo).await;
 
     with_revert_to_current_branch(&repo, || loop {
         let mut changes_propagated = false;

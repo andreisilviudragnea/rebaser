@@ -3,7 +3,8 @@ use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
 
 use crate::git::remote::{GitRemote, GitRemoteOps};
-use crate::git::repository::{GitRepository, RepositoryOps};
+use crate::git::repository::GitRepoOps;
+use crate::git::repository::{GitRepo, GitRepository, RepositoryOps};
 use crate::github::{Github, GithubClient};
 
 pub(crate) fn rebase_and_push(
@@ -74,7 +75,7 @@ pub(crate) fn with_revert_to_current_branch<F: FnMut()>(repo: &GitRepository, mu
     debug!("Current HEAD is {}", repo.head().name().unwrap());
 }
 
-pub(crate) async fn get_all_my_safe_prs(repo: &GitRepository<'_>) -> Vec<PullRequest> {
+pub(crate) async fn get_all_my_safe_prs(repo: &GitRepo<'_>) -> Vec<PullRequest> {
     let (host, owner, repo_name) = repo.get_host_owner_repo_name();
 
     let github = GithubClient::new(&host);
