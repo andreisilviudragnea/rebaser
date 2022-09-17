@@ -5,9 +5,7 @@ use crate::github::{Github, GithubClient};
 use crate::{GitRemote, GitRemoteOps};
 use git2::build::CheckoutBuilder;
 use git2::BranchType::Local;
-use git2::{
-    Error, ErrorCode, Object, ObjectType, RebaseOperationType, Reference, Repository, ResetType,
-};
+use git2::{Error, ErrorCode, Object, ObjectType, RebaseOperationType, Reference, Repository, ResetType};
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
 
@@ -118,44 +116,36 @@ impl GitRepoOps for GitRepo<'_> {
     fn is_safe_pr(&self, pr: &PullRequest) -> bool {
         let base = &pr.base.ref_field;
 
-        let base_ref = match self.repository.resolve_reference_from_short_name(base) {
-            Ok(reference) => reference,
+        let local_base_branch = match self.repository.repository.find_branch(base, Local) {
+            Ok(branch) => branch,
             Err(e) => {
-                error!("Error resolving reference from shortname for {base}: {e}");
+                error!("Error finding local base branch {base}: {e}");
                 return false;
             }
         };
 
-        let remote_name = self.primary_remote.name();
-
-        let remote_base_ref = self
-            .repository
-            .resolve_reference_from_short_name(&format!("{}/{base}", remote_name))
-            .unwrap();
+        let local_base_ref = local_base_branch.get();
 
         let pr_title = pr.title.as_ref().unwrap();
 
-        if base_ref != remote_base_ref {
+        if local_base_ref != local_base_branch.upstream().unwrap().get() {
             debug!("Pr \"{pr_title}\" is not safe because base ref \"{base}\" is not safe");
             return false;
         }
 
         let head = &pr.head.ref_field;
 
-        let head_ref = match self.repository.resolve_reference_from_short_name(head) {
-            Ok(reference) => reference,
+        let local_head_branch = match self.repository.repository.find_branch(head, Local) {
+            Ok(branch) => branch,
             Err(e) => {
-                error!("Error resolving reference from shortname for {head}: {e}");
+                error!("Error finding local head branch {base}: {e}");
                 return false;
             }
         };
 
-        let remote_head_ref = self
-            .repository
-            .resolve_reference_from_short_name(&format!("{}/{}", remote_name, head))
-            .unwrap();
+        let local_head_ref = local_head_branch.get();
 
-        if head_ref != remote_head_ref {
+        if local_head_ref != local_head_branch.upstream().unwrap().get() {
             debug!("Pr \"{pr_title}\" is not safe because head ref \"{head}\" is not safe");
             return false;
         }
@@ -163,7 +153,7 @@ impl GitRepoOps for GitRepo<'_> {
         debug!("\"{pr_title}\" {base} <- {head}");
 
         let (number_of_commits_ahead, number_of_commits_behind) =
-            compare_refs(self.repository, &head_ref, &base_ref);
+            compare_refs(self.repository, local_head_ref, local_base_ref);
 
         debug!(
         "\"{head}\" is {number_of_commits_ahead} commits ahead, {number_of_commits_behind} commits behind \"{base}\""
