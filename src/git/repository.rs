@@ -2,7 +2,7 @@ use std::fmt::Display;
 use std::process::Command;
 
 use crate::github::{Github, GithubClient};
-use crate::{GitRemote, GitRemoteOps};
+use crate::GitRemote;
 use git2::build::CheckoutBuilder;
 use git2::BranchType::Local;
 use git2::{
@@ -72,23 +72,16 @@ impl GitRepository<'_> {
 
 pub(crate) struct GitRepo<'repo> {
     pub(crate) repository: &'repo GitRepository<'repo>,
-    pub(crate) primary_remote: &'repo GitRemote<'repo>,
 }
 
 impl GitRepo<'_> {
-    pub(crate) async fn get_all_my_safe_prs(&self) -> Vec<PullRequest> {
-        let (host, owner, repo_name) = self.primary_remote.get_host_owner_repo_name();
-
-        let github = GithubClient::new(&host);
-
-        let github_repo = github.get_repo(&owner, &repo_name).await;
-
-        debug!("Github repo: {github_repo:?}");
-
-        self.repository
-            .fast_forward(github_repo.default_branch.as_ref().unwrap());
-
-        let all_my_open_prs = github.get_all_my_open_prs(&owner, &repo_name).await;
+    pub(crate) async fn get_all_my_safe_prs(
+        &self,
+        github: &GithubClient,
+        owner: &str,
+        repo: &str,
+    ) -> Vec<PullRequest> {
+        let all_my_open_prs = github.get_all_my_open_prs(owner, repo).await;
 
         let num_of_my_open_prs = all_my_open_prs.len();
 
