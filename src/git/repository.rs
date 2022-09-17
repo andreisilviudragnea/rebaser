@@ -12,13 +12,7 @@ use crate::GitRemote;
 pub(crate) trait RepositoryOps {
     fn rebase(&self, pr: &PullRequest) -> bool;
 
-    fn log_count(&self, since: &str, until: &str) -> usize;
-
-    fn switch(&self, name: &str);
-
     fn get_primary_remote(&self) -> GitRemote;
-
-    fn head(&self) -> Reference<'_>;
 
     fn reset(
         &self,
@@ -177,23 +171,6 @@ impl GitRepository<'_> {
 
         success
     }
-}
-
-impl RepositoryOps for GitRepository<'_> {
-    fn rebase(&self, pr: &PullRequest) -> bool {
-        let head = &pr.head.ref_field;
-        let base = &pr.base.ref_field;
-
-        let pr_title = pr.title.as_ref().unwrap();
-
-        info!("Rebasing \"{pr_title}\" {base} <- {head}...");
-
-        if cfg!(feature = "native-rebase") {
-            self.native_rebase(head, base)
-        } else {
-            self.libgit2_rebase(head, base)
-        }
-    }
 
     fn log_count(&self, since: &str, until: &str) -> usize {
         let mut revwalk = self.repository.revwalk().unwrap();
@@ -211,6 +188,27 @@ impl RepositoryOps for GitRepository<'_> {
             .checkout_tree(&reference.peel(ObjectType::Tree).unwrap(), None)
             .unwrap();
         self.repository.set_head(reference.name().unwrap()).unwrap();
+    }
+
+    fn head(&self) -> Reference<'_> {
+        self.repository.head().unwrap()
+    }
+}
+
+impl RepositoryOps for GitRepository<'_> {
+    fn rebase(&self, pr: &PullRequest) -> bool {
+        let head = &pr.head.ref_field;
+        let base = &pr.base.ref_field;
+
+        let pr_title = pr.title.as_ref().unwrap();
+
+        info!("Rebasing \"{pr_title}\" {base} <- {head}...");
+
+        if cfg!(feature = "native-rebase") {
+            self.native_rebase(head, base)
+        } else {
+            self.libgit2_rebase(head, base)
+        }
     }
 
     fn get_primary_remote(&self) -> GitRemote {
@@ -237,10 +235,6 @@ impl RepositoryOps for GitRepository<'_> {
         info!("Primary remote: {}", primary_remote.name().unwrap());
 
         GitRemote::new(primary_remote)
-    }
-
-    fn head(&self) -> Reference<'_> {
-        self.repository.head().unwrap()
     }
 
     fn reset(
