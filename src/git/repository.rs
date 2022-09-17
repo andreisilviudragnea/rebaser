@@ -10,7 +10,6 @@ use git2::{
 };
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
-use regex::Regex;
 
 pub(crate) trait RepositoryOps {
     fn rebase(&self, pr: &PullRequest) -> bool;
@@ -64,7 +63,7 @@ pub(crate) struct GitRepo<'repo> {
 
 impl GitRepo<'_> {
     pub(crate) async fn get_all_my_safe_prs(&self) -> Vec<PullRequest> {
-        let (host, owner, repo_name) = self.get_host_owner_repo_name();
+        let (host, owner, repo_name) = self.primary_remote.get_host_owner_repo_name();
 
         let github = GithubClient::new(&host);
 
@@ -110,8 +109,6 @@ impl GitRepo<'_> {
 
 pub(crate) trait GitRepoOps {
     fn fast_forward<S: AsRef<str> + Display>(&self, refname: S);
-
-    fn get_host_owner_repo_name(&self) -> (String, String, String);
 
     fn is_safe_pr(&self, pr: &PullRequest) -> bool;
 }
@@ -166,23 +163,6 @@ impl GitRepoOps for GitRepo<'_> {
             .unwrap();
 
         info!("Fast-forwarded {refname}");
-    }
-
-    fn get_host_owner_repo_name(&self) -> (String, String, String) {
-        let remote_url = self.primary_remote.url();
-        debug!("remote_url: {remote_url}");
-
-        let regex = Regex::new(r".*@(.*):(.*)/(.*).git").unwrap();
-
-        let captures = regex.captures(remote_url).unwrap();
-
-        let host = &captures[1];
-        let owner = &captures[2];
-        let repo_name = &captures[3];
-
-        debug!("{host}:{owner}/{repo_name}");
-
-        (host.to_owned(), owner.to_owned(), repo_name.to_owned())
     }
 
     fn is_safe_pr(&self, pr: &PullRequest) -> bool {
@@ -398,7 +378,7 @@ impl RepositoryOps for GitRepository<'_> {
             .map(|it| it.unwrap())
             .collect::<Vec<&str>>();
 
-        match remotes.len() {
+        let primary_remote = match remotes.len() {
             1 => self.repository.find_remote(remotes[0]).unwrap(),
             2 => {
                 let _origin_remote = remotes.iter().find(|&&remote| remote == "origin").unwrap();
@@ -409,7 +389,11 @@ impl RepositoryOps for GitRepository<'_> {
                 self.repository.find_remote(upstream_remote).unwrap()
             }
             _ => panic!("Only 1 or 2 remotes supported."),
-        }
+        };
+
+        info!("Primary remote: {}", primary_remote.name().unwrap());
+
+        primary_remote
     }
 
     fn head(&self) -> Reference<'_> {

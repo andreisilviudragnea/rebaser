@@ -1,5 +1,5 @@
 use git2::Repository;
-use log::{info, LevelFilter};
+use log::LevelFilter;
 use simple_logger::SimpleLogger;
 
 use git::remote::{GitRemote, GitRemoteOps};
@@ -23,8 +23,6 @@ async fn main() {
     let repo = GitRepository::new(&git_repo);
 
     let mut remote = GitRemote::new(&repo);
-
-    info!("Primary remote: {}", remote.name());
 
     remote.fetch();
 
