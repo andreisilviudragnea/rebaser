@@ -3,7 +3,10 @@ use std::process::Command;
 
 use git2::build::CheckoutBuilder;
 use git2::BranchType::Local;
-use git2::{ErrorCode, Object, ObjectType, RebaseOperationType, Reference, Repository, ResetType};
+use git2::{
+    Branch, BranchType, Error, ErrorCode, Object, ObjectType, RebaseOperationType, Reference,
+    Repository, ResetType,
+};
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
 
@@ -24,11 +27,11 @@ pub(crate) trait RepositoryOps {
     fn fast_forward<S: AsRef<str> + Display>(&self, refname: S);
 
     fn is_safe_pr(&self, pr: &PullRequest) -> bool;
+
+    fn find_branch(&self, name: &str, branch_type: BranchType) -> Result<Branch<'_>, Error>;
 }
 
-pub(crate) struct GitRepository<'repo> {
-    pub(crate) repository: &'repo Repository,
-}
+pub(crate) struct GitRepository<'repo>(&'repo Repository);
 
 impl GitRepository<'_> {
     pub(crate) fn with_revert_to_current_branch<F: FnMut()>(&self, mut f: F) {
@@ -58,32 +61,26 @@ impl GitRepository<'_> {
     }
 
     pub(crate) fn new(repository: &Repository) -> GitRepository {
-        GitRepository { repository }
+        GitRepository(repository)
     }
 
     fn libgit2_rebase(&self, head: &str, base: &str) -> bool {
         let mut rebase = self
-            .repository
+            .0
             .rebase(
                 Some(
                     &self
-                        .repository
+                        .0
                         .reference_to_annotated_commit(
-                            &self
-                                .repository
-                                .resolve_reference_from_short_name(head)
-                                .unwrap(),
+                            &self.0.resolve_reference_from_short_name(head).unwrap(),
                         )
                         .unwrap(),
                 ),
                 Some(
                     &self
-                        .repository
+                        .0
                         .reference_to_annotated_commit(
-                            &self
-                                .repository
-                                .resolve_reference_from_short_name(base)
-                                .unwrap(),
+                            &self.0.resolve_reference_from_short_name(base).unwrap(),
                         )
                         .unwrap(),
                 ),
@@ -98,7 +95,7 @@ impl GitRepository<'_> {
             match op {
                 Ok(operation) => match operation.kind().unwrap() {
                     RebaseOperationType::Pick => {
-                        let commit = self.repository.find_commit(operation.id()).unwrap();
+                        let commit = self.0.find_commit(operation.id()).unwrap();
                         match rebase.commit(None, &commit.committer(), None) {
                             Ok(oid) => {
                                 debug!("Successfully committed {}", oid)
@@ -171,7 +168,7 @@ impl GitRepository<'_> {
     }
 
     fn log_count(&self, since: &str, until: &str) -> usize {
-        let mut revwalk = self.repository.revwalk().unwrap();
+        let mut revwalk = self.0.revwalk().unwrap();
 
         revwalk.hide_ref(since).unwrap();
         revwalk.push_ref(until).unwrap();
@@ -180,16 +177,16 @@ impl GitRepository<'_> {
     }
 
     fn switch(&self, name: &str) {
-        let local_branch = self.repository.find_branch(name, Local).unwrap();
+        let local_branch = self.0.find_branch(name, Local).unwrap();
         let reference = local_branch.get();
-        self.repository
+        self.0
             .checkout_tree(&reference.peel(ObjectType::Tree).unwrap(), None)
             .unwrap();
-        self.repository.set_head(reference.name().unwrap()).unwrap();
+        self.0.set_head(reference.name().unwrap()).unwrap();
     }
 
     fn head(&self) -> Reference<'_> {
-        self.repository.head().unwrap()
+        self.0.head().unwrap()
     }
 }
 
@@ -210,7 +207,7 @@ impl RepositoryOps for GitRepository<'_> {
     }
 
     fn get_primary_remote(&self) -> GitRemote {
-        let remotes_array = self.repository.remotes().unwrap();
+        let remotes_array = self.0.remotes().unwrap();
 
         let remotes = remotes_array
             .iter()
@@ -218,14 +215,14 @@ impl RepositoryOps for GitRepository<'_> {
             .collect::<Vec<&str>>();
 
         let primary_remote = match remotes.len() {
-            1 => self.repository.find_remote(remotes[0]).unwrap(),
+            1 => self.0.find_remote(remotes[0]).unwrap(),
             2 => {
                 let _origin_remote = remotes.iter().find(|&&remote| remote == "origin").unwrap();
                 let upstream_remote = remotes
                     .iter()
                     .find(|&&remote| remote == "upstream")
                     .unwrap();
-                self.repository.find_remote(upstream_remote).unwrap()
+                self.0.find_remote(upstream_remote).unwrap()
             }
             _ => panic!("Only 1 or 2 remotes supported."),
         };
@@ -241,14 +238,11 @@ impl RepositoryOps for GitRepository<'_> {
         kind: ResetType,
         checkout: Option<&mut CheckoutBuilder<'_>>,
     ) {
-        self.repository.reset(target, kind, checkout).unwrap()
+        self.0.reset(target, kind, checkout).unwrap()
     }
 
     fn fast_forward<S: AsRef<str> + Display>(&self, refname: S) {
-        let mut local_branch = self
-            .repository
-            .find_branch(refname.as_ref(), Local)
-            .unwrap();
+        let mut local_branch = self.0.find_branch(refname.as_ref(), Local).unwrap();
 
         let upstream_branch = local_branch.upstream().unwrap();
 
@@ -257,12 +251,12 @@ impl RepositoryOps for GitRepository<'_> {
         let upstream_reference = upstream_branch.get();
 
         let upstream_annotated_commit = self
-            .repository
+            .0
             .reference_to_annotated_commit(upstream_reference)
             .unwrap();
 
         let (merge_analysis, _) = self
-            .repository
+            .0
             .merge_analysis_for_ref(local_reference, &[&upstream_annotated_commit])
             .unwrap();
 
@@ -274,8 +268,8 @@ impl RepositoryOps for GitRepository<'_> {
             panic!("Unexpected merge_analysis={merge_analysis:?}");
         }
 
-        if *local_reference == self.repository.head().unwrap() {
-            self.repository
+        if *local_reference == self.0.head().unwrap() {
+            self.0
                 .checkout_tree(&upstream_reference.peel(ObjectType::Tree).unwrap(), None)
                 .unwrap();
             debug!("Updated index and tree");
@@ -294,7 +288,7 @@ impl RepositoryOps for GitRepository<'_> {
     fn is_safe_pr(&self, pr: &PullRequest) -> bool {
         let base = &pr.base.ref_field;
 
-        let local_base_branch = match self.repository.find_branch(base, Local) {
+        let local_base_branch = match self.0.find_branch(base, Local) {
             Ok(branch) => branch,
             Err(e) => {
                 error!("Error finding local base branch {base}: {e}");
@@ -313,7 +307,7 @@ impl RepositoryOps for GitRepository<'_> {
 
         let head = &pr.head.ref_field;
 
-        let local_head_branch = match self.repository.find_branch(head, Local) {
+        let local_head_branch = match self.0.find_branch(head, Local) {
             Ok(branch) => branch,
             Err(e) => {
                 error!("Error finding local head branch {base}: {e}");
@@ -338,5 +332,9 @@ impl RepositoryOps for GitRepository<'_> {
     );
 
         true
+    }
+
+    fn find_branch(&self, name: &str, branch_type: BranchType) -> Result<Branch<'_>, Error> {
+        self.0.find_branch(name, branch_type)
     }
 }

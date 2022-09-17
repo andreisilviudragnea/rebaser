@@ -47,7 +47,7 @@ impl GitRemoteOps for GitRemote<'_> {
     fn push(&mut self, pr: &PullRequest, repo: &GitRepository) -> bool {
         let head = &pr.head.ref_field;
 
-        let local_head_branch = repo.repository.find_branch(head, Local).unwrap();
+        let local_head_branch = repo.find_branch(head, Local).unwrap();
 
         let upstream_head_branch = local_head_branch.upstream().unwrap();
 
