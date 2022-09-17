@@ -5,7 +5,9 @@ use crate::github::{Github, GithubClient};
 use crate::{GitRemote, GitRemoteOps};
 use git2::build::CheckoutBuilder;
 use git2::BranchType::Local;
-use git2::{Error, ErrorCode, Object, ObjectType, RebaseOperationType, Reference, Repository, ResetType};
+use git2::{
+    Error, ErrorCode, Object, ObjectType, RebaseOperationType, Reference, Repository, ResetType,
+};
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
 
