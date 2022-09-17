@@ -56,9 +56,7 @@ impl GitRepository<'_> {
             self.log_count(head_commit_name, base_commit_name),
         )
     }
-}
 
-impl GitRepository<'_> {
     pub(crate) fn new(repository: &Repository) -> GitRepository {
         GitRepository { repository }
     }
