@@ -31,9 +31,9 @@ pub(crate) trait RepositoryOps {
     fn find_branch(&self, name: &str, branch_type: BranchType) -> Result<Branch<'_>, Error>;
 }
 
-pub(crate) struct GitRepository<'repo>(&'repo Repository);
+pub(crate) struct GitRepository(Repository);
 
-impl GitRepository<'_> {
+impl GitRepository {
     pub(crate) fn with_revert_to_current_branch<F: FnMut()>(&self, mut f: F) {
         let current_head = self.head();
 
@@ -60,8 +60,8 @@ impl GitRepository<'_> {
         )
     }
 
-    pub(crate) fn new(repository: &Repository) -> GitRepository {
-        GitRepository(repository)
+    pub(crate) fn new() -> GitRepository {
+        GitRepository(Repository::discover(".").unwrap())
     }
 
     fn libgit2_rebase(&self, head: &str, base: &str) -> bool {
@@ -190,7 +190,7 @@ impl GitRepository<'_> {
     }
 }
 
-impl RepositoryOps for GitRepository<'_> {
+impl RepositoryOps for GitRepository {
     fn rebase(&self, pr: &PullRequest) -> bool {
         let head = &pr.head.ref_field;
         let base = &pr.base.ref_field;

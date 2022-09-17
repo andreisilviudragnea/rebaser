@@ -1,4 +1,3 @@
-use git2::Repository;
 use log::{debug, info, LevelFilter};
 use octocrab::models::pulls::PullRequest;
 use simple_logger::SimpleLogger;
@@ -20,9 +19,7 @@ async fn main() {
         .init()
         .unwrap();
 
-    let git_repo = Repository::discover(".").unwrap();
-
-    let repo = GitRepository::new(&git_repo);
+    let repo = GitRepository::new();
 
     let mut primary_remote = repo.get_primary_remote();
 
