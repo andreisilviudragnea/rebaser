@@ -3,9 +3,7 @@ use std::process::Command;
 
 use git2::build::CheckoutBuilder;
 use git2::BranchType::Local;
-use git2::{
-    Error, ErrorCode, Object, ObjectType, RebaseOperationType, Reference, Repository, ResetType,
-};
+use git2::{ErrorCode, Object, ObjectType, RebaseOperationType, Reference, Repository, ResetType};
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
 
@@ -16,13 +14,11 @@ pub(crate) trait RepositoryOps {
 
     fn log_count(&self, since: &str, until: &str) -> usize;
 
-    fn switch(&self, reference: &Reference);
+    fn switch(&self, name: &str);
 
     fn get_primary_remote(&self) -> GitRemote;
 
     fn head(&self) -> Reference<'_>;
-
-    fn resolve_reference_from_short_name(&self, refname: &str) -> Result<Reference<'_>, Error>;
 
     fn reset(
         &self,
@@ -52,9 +48,7 @@ impl GitRepository<'_> {
 
         debug!("Current HEAD is {}", self.head().name().unwrap());
 
-        let reference = self.resolve_reference_from_short_name(name).unwrap();
-
-        self.switch(&reference);
+        self.switch(name);
 
         debug!("Current HEAD is {}", self.head().name().unwrap());
     }
@@ -210,7 +204,9 @@ impl RepositoryOps for GitRepository<'_> {
         revwalk.into_iter().count()
     }
 
-    fn switch(&self, reference: &Reference) {
+    fn switch(&self, name: &str) {
+        let local_branch = self.repository.find_branch(name, Local).unwrap();
+        let reference = local_branch.get();
         self.repository
             .checkout_tree(&reference.peel(ObjectType::Tree).unwrap(), None)
             .unwrap();
@@ -245,10 +241,6 @@ impl RepositoryOps for GitRepository<'_> {
 
     fn head(&self) -> Reference<'_> {
         self.repository.head().unwrap()
-    }
-
-    fn resolve_reference_from_short_name(&self, refname: &str) -> Result<Reference<'_>, Error> {
-        self.repository.resolve_reference_from_short_name(refname)
     }
 
     fn reset(
