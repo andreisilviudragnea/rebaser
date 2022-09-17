@@ -1,6 +1,7 @@
 use std::fmt::Display;
 use std::process::Command;
 
+use crate::github::{Github, GithubClient};
 use crate::{GitRemote, GitRemoteOps};
 use git2::build::CheckoutBuilder;
 use git2::{
@@ -39,6 +40,52 @@ pub(crate) struct GitRepository<'repo> {
 pub(crate) struct GitRepo<'repo> {
     pub(crate) repository: &'repo GitRepository<'repo>,
     pub(crate) primary_remote: &'repo GitRemote<'repo>,
+}
+
+impl GitRepo<'_> {
+    pub(crate) async fn get_all_my_safe_prs(&self) -> Vec<PullRequest> {
+        let (host, owner, repo_name) = self.get_host_owner_repo_name();
+
+        let github = GithubClient::new(&host);
+
+        let github_repo = github.get_repo(&owner, &repo_name).await;
+
+        debug!("Github repo: {github_repo:?}");
+
+        self.fast_forward(github_repo.default_branch.as_ref().unwrap());
+
+        let all_prs = github.get_all_open_prs(&owner, &repo_name).await;
+
+        let user = github.get_current_user().await;
+
+        let my_open_prs = all_prs
+            .into_iter()
+            .filter(|pr| **pr.user.as_ref().unwrap() == user)
+            .collect::<Vec<PullRequest>>();
+
+        let num_of_my_open_prs = my_open_prs.len();
+
+        let my_safe_prs = my_open_prs
+            .into_iter()
+            .filter(|pr| self.is_safe_pr(pr))
+            .collect::<Vec<PullRequest>>();
+
+        info!(
+            "Going to rebase {}/{num_of_my_open_prs} safe pull requests:",
+            my_safe_prs.len()
+        );
+
+        my_safe_prs.iter().for_each(|pr| {
+            info!(
+                "\"{}\" {} <- {}",
+                pr.title.as_ref().unwrap(),
+                pr.base.ref_field,
+                pr.head.ref_field
+            );
+        });
+
+        my_safe_prs
+    }
 }
 
 pub(crate) trait GitRepoOps {
