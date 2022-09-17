@@ -37,7 +37,7 @@ pub(crate) trait RepositoryOps {
 }
 
 pub(crate) struct GitRepository<'repo> {
-    repository: &'repo Repository,
+    pub(crate) repository: &'repo Repository,
 }
 
 impl GitRepository<'_> {

@@ -1,5 +1,6 @@
 use std::env;
 
+use git2::BranchType::Local;
 use git2::ResetType::Hard;
 use git2::{Cred, FetchOptions, PushOptions, Remote, RemoteCallbacks};
 use log::{debug, error, info};
@@ -13,11 +14,7 @@ pub(crate) trait GitRemoteOps {
 
     fn push(&mut self, pr: &PullRequest, repo: &GitRepository) -> bool;
 
-    fn name(&self) -> &str;
-
     fn get_host_owner_repo_name(&self) -> (String, String, String);
-
-    fn url(&self) -> &str;
 }
 
 pub(crate) struct GitRemote<'repo>(Remote<'repo>);
@@ -50,15 +47,15 @@ impl GitRemoteOps for GitRemote<'_> {
     fn push(&mut self, pr: &PullRequest, repo: &GitRepository) -> bool {
         let head = &pr.head.ref_field;
 
-        let head_ref = repo.resolve_reference_from_short_name(head).unwrap();
+        let local_head_branch = repo.repository.find_branch(head, Local).unwrap();
 
-        let remote_head_ref = repo
-            .resolve_reference_from_short_name(&format!("{}/{head}", self.name()))
-            .unwrap();
+        let upstream_head_branch = local_head_branch.upstream().unwrap();
+
+        let upstream_head_ref = upstream_head_branch.get();
 
         let pr_title = pr.title.as_ref().unwrap();
 
-        if head_ref == remote_head_ref {
+        if local_head_branch.get() == upstream_head_ref {
             info!("No changes for \"{pr_title}\". Not pushing to remote.");
             return false;
         }
@@ -80,19 +77,15 @@ impl GitRemoteOps for GitRemote<'_> {
             Err(e) => {
                 error!("Push to remote failed for \"{pr_title}\": {e}. Resetting...");
 
-                let remote_commit = remote_head_ref.peel_to_commit().unwrap();
+                let upstream_commit = upstream_head_ref.peel_to_commit().unwrap();
 
-                repo.reset(remote_commit.as_object(), Hard, None);
+                repo.reset(upstream_commit.as_object(), Hard, None);
 
                 info!("Successfully reset.");
 
                 false
             }
         }
-    }
-
-    fn name(&self) -> &str {
-        self.0.name().unwrap()
     }
 
     fn get_host_owner_repo_name(&self) -> (String, String, String) {
@@ -110,10 +103,6 @@ impl GitRemoteOps for GitRemote<'_> {
         debug!("{host}:{owner}/{repo_name}");
 
         (host.to_owned(), owner.to_owned(), repo_name.to_owned())
-    }
-
-    fn url(&self) -> &str {
-        self.0.url().unwrap()
     }
 }
 
