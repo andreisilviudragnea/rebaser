@@ -58,6 +58,16 @@ impl GitRepository<'_> {
 
         debug!("Current HEAD is {}", self.head().name().unwrap());
     }
+
+    fn compare_refs(&self, head: &Reference, base: &Reference) -> (usize, usize) {
+        let head_commit_name = head.name().unwrap();
+        let base_commit_name = base.name().unwrap();
+
+        (
+            self.log_count(base_commit_name, head_commit_name),
+            self.log_count(head_commit_name, base_commit_name),
+        )
+    }
 }
 
 pub(crate) struct GitRepo<'repo> {
@@ -389,7 +399,7 @@ impl RepositoryOps for GitRepository<'_> {
         debug!("\"{pr_title}\" {base} <- {head}");
 
         let (number_of_commits_ahead, number_of_commits_behind) =
-            compare_refs(self, local_head_ref, local_base_ref);
+            self.compare_refs(local_head_ref, local_base_ref);
 
         debug!(
         "\"{head}\" is {number_of_commits_ahead} commits ahead, {number_of_commits_behind} commits behind \"{base}\""
@@ -397,14 +407,4 @@ impl RepositoryOps for GitRepository<'_> {
 
         true
     }
-}
-
-fn compare_refs(repo: &GitRepository, head: &Reference, base: &Reference) -> (usize, usize) {
-    let head_commit_name = head.name().unwrap();
-    let base_commit_name = base.name().unwrap();
-
-    (
-        repo.log_count(base_commit_name, head_commit_name),
-        repo.log_count(head_commit_name, base_commit_name),
-    )
 }
