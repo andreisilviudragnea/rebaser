@@ -4,6 +4,7 @@ use std::process::Command;
 use crate::github::{Github, GithubClient};
 use crate::{GitRemote, GitRemoteOps};
 use git2::build::CheckoutBuilder;
+use git2::BranchType::Local;
 use git2::{
     Error, ErrorCode, Object, ObjectType, RebaseOperationType, Reference, Repository, ResetType,
 };
@@ -114,28 +115,28 @@ pub(crate) trait GitRepoOps {
 
 impl GitRepoOps for GitRepo<'_> {
     fn fast_forward<S: AsRef<str> + Display>(&self, refname: S) {
-        let mut reference = self
+        let mut local_branch = self
             .repository
-            .resolve_reference_from_short_name(refname.as_ref())
+            .repository
+            .find_branch(refname.as_ref(), Local)
             .unwrap();
 
-        let remote_reference = self
-            .repository
-            .resolve_reference_from_short_name(
-                format!("{}/{refname}", self.primary_remote.name()).as_str(),
-            )
-            .unwrap();
+        let upstream_branch = local_branch.upstream().unwrap();
 
-        let remote_annotated_commit = self
+        let local_reference = local_branch.get_mut();
+
+        let upstream_reference = upstream_branch.get();
+
+        let upstream_annotated_commit = self
             .repository
             .repository
-            .reference_to_annotated_commit(&remote_reference)
+            .reference_to_annotated_commit(upstream_reference)
             .unwrap();
 
         let (merge_analysis, _) = self
             .repository
             .repository
-            .merge_analysis_for_ref(&reference, &[&remote_annotated_commit])
+            .merge_analysis_for_ref(local_reference, &[&upstream_annotated_commit])
             .unwrap();
 
         if merge_analysis.is_up_to_date() {
@@ -146,17 +147,17 @@ impl GitRepoOps for GitRepo<'_> {
             panic!("Unexpected merge_analysis={merge_analysis:?}");
         }
 
-        if reference == self.repository.head() {
+        if *local_reference == self.repository.head() {
             self.repository
                 .repository
-                .checkout_tree(&remote_reference.peel(ObjectType::Tree).unwrap(), None)
+                .checkout_tree(&upstream_reference.peel(ObjectType::Tree).unwrap(), None)
                 .unwrap();
             debug!("Updated index and tree");
         }
 
-        reference
+        local_reference
             .set_target(
-                remote_reference.peel(ObjectType::Commit).unwrap().id(),
+                upstream_reference.peel(ObjectType::Commit).unwrap().id(),
                 format!("Fast-forward {refname}").as_str(),
             )
             .unwrap();
