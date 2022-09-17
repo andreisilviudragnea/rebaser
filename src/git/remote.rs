@@ -20,11 +20,11 @@ pub(crate) trait GitRemoteOps {
     fn url(&self) -> &str;
 }
 
-pub(crate) struct GitRemote<'a>(pub Remote<'a>);
+pub(crate) struct GitRemote<'repo>(Remote<'repo>);
 
-impl<'a> GitRemote<'a> {
-    pub(crate) fn new(repo: &'a GitRepository) -> GitRemote<'a> {
-        GitRemote(repo.get_primary_remote())
+impl GitRemote<'_> {
+    pub(crate) fn new(remote: Remote) -> GitRemote {
+        GitRemote(remote)
     }
 }
 

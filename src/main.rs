@@ -22,7 +22,7 @@ async fn main() {
 
     let repo = GitRepository::new(&git_repo);
 
-    let mut remote = GitRemote::new(&repo);
+    let mut remote = repo.get_primary_remote();
 
     remote.fetch();
 

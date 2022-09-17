@@ -5,8 +5,7 @@ use crate::github::{Github, GithubClient};
 use crate::{GitRemote, GitRemoteOps};
 use git2::build::CheckoutBuilder;
 use git2::{
-    Error, ErrorCode, Object, ObjectType, RebaseOperationType, Reference, Remote, Repository,
-    ResetType,
+    Error, ErrorCode, Object, ObjectType, RebaseOperationType, Reference, Repository, ResetType,
 };
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
@@ -18,7 +17,7 @@ pub(crate) trait RepositoryOps {
 
     fn switch(&self, reference: &Reference);
 
-    fn get_primary_remote(&self) -> Remote;
+    fn get_primary_remote(&self) -> GitRemote;
 
     fn head(&self) -> Reference<'_>;
 
@@ -370,7 +369,7 @@ impl RepositoryOps for GitRepository<'_> {
         self.repository.set_head(reference.name().unwrap()).unwrap();
     }
 
-    fn get_primary_remote(&self) -> Remote {
+    fn get_primary_remote(&self) -> GitRemote {
         let remotes_array = self.repository.remotes().unwrap();
 
         let remotes = remotes_array
@@ -393,7 +392,7 @@ impl RepositoryOps for GitRepository<'_> {
 
         info!("Primary remote: {}", primary_remote.name().unwrap());
 
-        primary_remote
+        GitRemote::new(primary_remote)
     }
 
     fn head(&self) -> Reference<'_> {
