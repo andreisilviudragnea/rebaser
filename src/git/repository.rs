@@ -42,7 +42,7 @@ impl GitRepository<'_> {
 
         debug!("Current HEAD is {}", self.head().name().unwrap());
 
-        self.switch(name);
+        self.switch(current_head.shorthand().unwrap());
 
         debug!("Current HEAD is {}", self.head().name().unwrap());
     }
