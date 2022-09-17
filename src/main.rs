@@ -2,10 +2,8 @@ use log::{debug, info, LevelFilter};
 use octocrab::models::pulls::PullRequest;
 use simple_logger::SimpleLogger;
 
-use git::remote::{GitRemote, GitRemoteOps};
-use git::repository::GitRepository;
-
-use crate::git::repository::RepositoryOps;
+use crate::git::remote::GitRemoteOps;
+use crate::git::repository::{GitRepository, RepositoryOps};
 use crate::github::{Github, GithubClient};
 
 mod git;

@@ -1,6 +1,7 @@
 use std::fmt::Display;
 use std::process::Command;
 
+use crate::git::remote::GitRemote;
 use git2::build::CheckoutBuilder;
 use git2::BranchType::Local;
 use git2::{
@@ -9,8 +10,6 @@ use git2::{
 };
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
-
-use crate::GitRemote;
 
 pub(crate) trait RepositoryOps {
     fn rebase(&self, pr: &PullRequest) -> bool;
