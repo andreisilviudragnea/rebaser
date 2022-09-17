@@ -1,17 +1,17 @@
-use async_trait::async_trait;
-use octocrab::models::pulls::PullRequest;
-use octocrab::models::{Repository, User};
-use octocrab::params::State;
-use octocrab::{Octocrab, OctocrabBuilder};
 use std::env::var;
 use std::fs;
+
+use async_trait::async_trait;
+use octocrab::models::pulls::PullRequest;
+use octocrab::models::Repository;
+use octocrab::params::State;
+use octocrab::{Octocrab, OctocrabBuilder};
 use toml::Value;
 
 #[async_trait]
 pub(crate) trait Github {
     async fn get_repo(&self, owner: &str, repo: &str) -> Repository;
-    async fn get_all_open_prs(&self, owner: &str, repo: &str) -> Vec<PullRequest>;
-    async fn get_current_user(&self) -> User;
+    async fn get_all_my_open_prs(&self, owner: &str, repo: &str) -> Vec<PullRequest>;
 }
 
 pub(crate) struct GithubClient {
@@ -76,7 +76,7 @@ impl Github for GithubClient {
             .unwrap()
     }
 
-    async fn get_all_open_prs(&self, owner: &str, repo: &str) -> Vec<PullRequest> {
+    async fn get_all_my_open_prs(&self, owner: &str, repo: &str) -> Vec<PullRequest> {
         let mut page = self
             .octocrab
             .pulls(owner, repo)
@@ -94,10 +94,11 @@ impl Github for GithubClient {
             all_prs.append(&mut page.items);
         }
 
-        all_prs
-    }
+        let current_user = self.octocrab.current().user().await.unwrap();
 
-    async fn get_current_user(&self) -> User {
-        self.octocrab.current().user().await.unwrap()
+        all_prs
+            .into_iter()
+            .filter(|pr| **pr.user.as_ref().unwrap() == current_user)
+            .collect()
     }
 }

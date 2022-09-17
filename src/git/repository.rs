@@ -88,18 +88,11 @@ impl GitRepo<'_> {
         self.repository
             .fast_forward(github_repo.default_branch.as_ref().unwrap());
 
-        let all_prs = github.get_all_open_prs(&owner, &repo_name).await;
+        let all_my_open_prs = github.get_all_my_open_prs(&owner, &repo_name).await;
 
-        let user = github.get_current_user().await;
+        let num_of_my_open_prs = all_my_open_prs.len();
 
-        let my_open_prs = all_prs
-            .into_iter()
-            .filter(|pr| **pr.user.as_ref().unwrap() == user)
-            .collect::<Vec<PullRequest>>();
-
-        let num_of_my_open_prs = my_open_prs.len();
-
-        let my_safe_prs = my_open_prs
+        let my_safe_prs = all_my_open_prs
             .into_iter()
             .filter(|pr| self.repository.is_safe_pr(pr))
             .collect::<Vec<PullRequest>>();
