@@ -5,10 +5,8 @@ use simple_logger::SimpleLogger;
 use git::remote::{GitRemote, GitRemoteOps};
 use git::repository::GitRepository;
 
-use crate::all::rebase_and_push;
-use crate::git::repository::GitRepo;
+use crate::git::repository::{GitRepo, RepositoryOps};
 
-mod all;
 mod git;
 mod github;
 
@@ -41,7 +39,7 @@ async fn main() {
         let mut changes_propagated = false;
 
         all_my_safe_prs.iter().for_each(|pr| {
-            changes_propagated = rebase_and_push(pr, &repo, &mut remote) || changes_propagated;
+            changes_propagated = (repo.rebase(pr) && remote.push(pr, &repo)) || changes_propagated;
         });
 
         if !changes_propagated {
