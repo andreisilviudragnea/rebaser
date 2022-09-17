@@ -1,7 +1,9 @@
 use std::env;
 
-use git2::{Cred, Error, FetchOptions, PushOptions, Remote, RemoteCallbacks};
-use log::debug;
+use git2::ResetType::Hard;
+use git2::{Cred, FetchOptions, PushOptions, Remote, RemoteCallbacks};
+use log::{debug, error, info};
+use octocrab::models::pulls::PullRequest;
 use regex::Regex;
 
 use crate::git::repository::{GitRepository, RepositoryOps};
@@ -9,7 +11,7 @@ use crate::git::repository::{GitRepository, RepositoryOps};
 pub(crate) trait GitRemoteOps {
     fn fetch(&mut self);
 
-    fn push(&mut self, head_ref: &str) -> Result<(), Error>;
+    fn push(&mut self, pr: &PullRequest, repo: &GitRepository) -> bool;
 
     fn name(&self) -> &str;
 
@@ -45,13 +47,48 @@ impl GitRemoteOps for GitRemote<'_> {
             .unwrap()
     }
 
-    fn push(&mut self, head_ref: &str) -> Result<(), Error> {
+    fn push(&mut self, pr: &PullRequest, repo: &GitRepository) -> bool {
+        let head = &pr.head.ref_field;
+
+        let head_ref = repo.resolve_reference_from_short_name(head).unwrap();
+
+        let remote_head_ref = repo
+            .resolve_reference_from_short_name(&format!("{}/{head}", self.name()))
+            .unwrap();
+
+        let pr_title = pr.title.as_ref().unwrap();
+
+        if head_ref == remote_head_ref {
+            info!("No changes for \"{pr_title}\". Not pushing to remote.");
+            return false;
+        }
+
+        info!("Pushing changes to remote...");
+
         let mut options = PushOptions::new();
 
         options.remote_callbacks(credentials_callback());
 
-        self.0
-            .push(&[format!("+refs/heads/{head_ref}")], Some(&mut options))
+        match self
+            .0
+            .push(&[format!("+refs/heads/{head}")], Some(&mut options))
+        {
+            Ok(()) => {
+                info!("Successfully pushed changes to remote for \"{pr_title}\"");
+                true
+            }
+            Err(e) => {
+                error!("Push to remote failed for \"{pr_title}\": {e}. Resetting...");
+
+                let remote_commit = remote_head_ref.peel_to_commit().unwrap();
+
+                repo.reset(remote_commit.as_object(), Hard, None);
+
+                info!("Successfully reset.");
+
+                false
+            }
+        }
     }
 
     fn name(&self) -> &str {
