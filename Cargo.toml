@@ -16,7 +16,7 @@ regex = "1.6.0"
 toml = "0.5.9"
 url = "2.3.0"
 log = "0.4.17"
-simple_logger = "3.0.0"
+simple_logger = "4.0.0"
 async-trait = "0.1.58"
 
 [features]
