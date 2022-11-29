@@ -17,7 +17,7 @@ toml = "0.5.9"
 url = "2.3.0"
 log = "0.4.17"
 simple_logger = "4.0.0"
-async-trait = "0.1.58"
+async-trait = "0.1.59"
 
 [features]
 default = ["native-rebase"]
