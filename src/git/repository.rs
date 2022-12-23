@@ -118,25 +118,24 @@ impl RepositoryOps for GitRepository {
 
         info!("Rebasing \"{pr_title}\" {base} <- {head}...");
 
-        let output = Command::new("git")
+        let status = Command::new("git")
             .arg("rebase")
             .arg(base)
             .arg(head)
-            .output()
+            .status()
             .unwrap();
 
-        debug!("Native rebase: {:?}", output);
-
-        let success = output.status.success();
+        let success = status.success();
 
         if !success {
             error!("Error rebasing {head} onto {base}. Aborting...");
 
-            Command::new("git")
+            assert!(Command::new("git")
                 .arg("rebase")
                 .arg("--abort")
                 .status()
-                .expect("git rebase --abort should not fail");
+                .expect("git rebase --abort should not fail")
+                .success());
         }
 
         success
