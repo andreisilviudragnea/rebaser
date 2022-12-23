@@ -58,7 +58,12 @@ impl GitRepository {
     }
 
     pub(crate) fn new() -> GitRepository {
-        GitRepository(Repository::discover(".").unwrap())
+        let repository = Repository::discover(".").unwrap();
+        Command::new("git")
+            .arg("stash")
+            .status()
+            .expect("git stash should not fail");
+        GitRepository(repository)
     }
 
     fn log_count(&self, since: &str, until: &str) -> usize {
@@ -81,6 +86,16 @@ impl GitRepository {
 
     fn head(&self) -> Reference<'_> {
         self.0.head().unwrap()
+    }
+}
+
+impl Drop for GitRepository {
+    fn drop(&mut self) {
+        Command::new("git")
+            .arg("stash")
+            .arg("pop")
+            .status()
+            .expect("git stash pop should not fail");
     }
 }
 
