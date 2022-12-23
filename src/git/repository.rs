@@ -62,14 +62,13 @@ impl GitRepository {
 
     pub(crate) fn new() -> GitRepository {
         let mut repository = Repository::discover(".").unwrap();
-        let has_changes_to_unstash = match repository.stash_save2(
-            &repository.signature().expect("signature should not fail"),
-            None,
-            None,
-        ) {
-            Ok(_) => true,
-            Err(_) => false,
-        };
+        let has_changes_to_unstash = repository
+            .stash_save2(
+                &repository.signature().expect("signature should not fail"),
+                None,
+                None,
+            )
+            .is_ok();
         GitRepository {
             repository,
             has_changes_to_unstash,
