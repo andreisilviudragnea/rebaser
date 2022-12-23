@@ -1,15 +1,13 @@
 use std::fmt::Display;
 use std::process::Command;
 
-use crate::git::remote::GitRemote;
 use git2::build::CheckoutBuilder;
 use git2::BranchType::Local;
-use git2::{
-    Branch, BranchType, Error, ErrorCode, Object, ObjectType, RebaseOperationType, Reference,
-    Repository, ResetType,
-};
+use git2::{Branch, BranchType, Error, Object, ObjectType, Reference, Repository, ResetType};
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
+
+use crate::git::remote::GitRemote;
 
 pub(crate) trait RepositoryOps {
     fn rebase(&self, pr: &PullRequest) -> bool;
@@ -63,109 +61,6 @@ impl GitRepository {
         GitRepository(Repository::discover(".").unwrap())
     }
 
-    fn libgit2_rebase(&self, head: &str, base: &str) -> bool {
-        let mut rebase = self
-            .0
-            .rebase(
-                Some(
-                    &self
-                        .0
-                        .reference_to_annotated_commit(
-                            &self.0.resolve_reference_from_short_name(head).unwrap(),
-                        )
-                        .unwrap(),
-                ),
-                Some(
-                    &self
-                        .0
-                        .reference_to_annotated_commit(
-                            &self.0.resolve_reference_from_short_name(base).unwrap(),
-                        )
-                        .unwrap(),
-                ),
-                None,
-                None,
-            )
-            .unwrap();
-
-        debug!("Rebase operations: {}", rebase.len());
-
-        while let Some(op) = rebase.next() {
-            match op {
-                Ok(operation) => match operation.kind().unwrap() {
-                    RebaseOperationType::Pick => {
-                        let commit = self.0.find_commit(operation.id()).unwrap();
-                        match rebase.commit(None, &commit.committer(), None) {
-                            Ok(oid) => {
-                                debug!("Successfully committed {}", oid)
-                            }
-                            Err(e) => {
-                                if e.code() != ErrorCode::Applied {
-                                    error!("Error committing: {}. Aborting...", e);
-                                    rebase.abort().unwrap();
-                                    return false;
-                                }
-                            }
-                        };
-                    }
-                    RebaseOperationType::Reword => {
-                        panic!("Reword encountered");
-                    }
-                    RebaseOperationType::Edit => {
-                        panic!("Edit encountered");
-                    }
-                    RebaseOperationType::Squash => {
-                        panic!("Squash encountered");
-                    }
-                    RebaseOperationType::Fixup => {
-                        panic!("Fixup encountered");
-                    }
-                    RebaseOperationType::Exec => {
-                        panic!("Exec encountered");
-                    }
-                },
-                Err(e) => {
-                    error!("Error rebasing {head} onto {base}: {e}. Aborting...");
-                    rebase.abort().unwrap();
-                    return false;
-                }
-            }
-        }
-
-        rebase.finish(None).unwrap();
-
-        info!("Successfully rebased.");
-
-        true
-    }
-
-    fn native_rebase(&self, head: &str, base: &str) -> bool {
-        let output = Command::new("git")
-            .arg("rebase")
-            .arg(base)
-            .arg(head)
-            .output()
-            .unwrap();
-
-        debug!("Native rebase: {:?}", output);
-
-        let success = output.status.success();
-
-        if !success {
-            error!("Error rebasing {head} onto {base}. Aborting...");
-
-            assert!(Command::new("git")
-                .arg("rebase")
-                .arg("--abort")
-                .output()
-                .unwrap()
-                .status
-                .success());
-        }
-
-        success
-    }
-
     fn log_count(&self, since: &str, until: &str) -> usize {
         let mut revwalk = self.0.revwalk().unwrap();
 
@@ -198,11 +93,30 @@ impl RepositoryOps for GitRepository {
 
         info!("Rebasing \"{pr_title}\" {base} <- {head}...");
 
-        if cfg!(feature = "native-rebase") {
-            self.native_rebase(head, base)
-        } else {
-            self.libgit2_rebase(head, base)
+        let output = Command::new("git")
+            .arg("rebase")
+            .arg(base)
+            .arg(head)
+            .output()
+            .unwrap();
+
+        debug!("Native rebase: {:?}", output);
+
+        let success = output.status.success();
+
+        if !success {
+            error!("Error rebasing {head} onto {base}. Aborting...");
+
+            assert!(Command::new("git")
+                .arg("rebase")
+                .arg("--abort")
+                .output()
+                .unwrap()
+                .status
+                .success());
         }
+
+        success
     }
 
     fn get_primary_remote(&self) -> GitRemote {
