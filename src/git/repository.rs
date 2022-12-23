@@ -28,7 +28,10 @@ pub(crate) trait RepositoryOps {
     fn find_branch(&self, name: &str, branch_type: BranchType) -> Result<Branch<'_>, Error>;
 }
 
-pub(crate) struct GitRepository(Repository);
+pub(crate) struct GitRepository {
+    repository: Repository,
+    has_changes_to_unstash: bool,
+}
 
 impl GitRepository {
     pub(crate) fn with_revert_to_current_branch<F: FnMut()>(&self, mut f: F) {
@@ -58,16 +61,23 @@ impl GitRepository {
     }
 
     pub(crate) fn new() -> GitRepository {
-        let repository = Repository::discover(".").unwrap();
-        Command::new("git")
-            .arg("stash")
-            .status()
-            .expect("git stash should not fail");
-        GitRepository(repository)
+        let mut repository = Repository::discover(".").unwrap();
+        let has_changes_to_unstash = match repository.stash_save2(
+            &repository.signature().expect("signature should not fail"),
+            None,
+            None,
+        ) {
+            Ok(_) => true,
+            Err(_) => false,
+        };
+        GitRepository {
+            repository,
+            has_changes_to_unstash,
+        }
     }
 
     fn log_count(&self, since: &str, until: &str) -> usize {
-        let mut revwalk = self.0.revwalk().unwrap();
+        let mut revwalk = self.repository.revwalk().unwrap();
 
         revwalk.hide_ref(since).unwrap();
         revwalk.push_ref(until).unwrap();
@@ -76,26 +86,26 @@ impl GitRepository {
     }
 
     fn switch(&self, name: &str) {
-        let local_branch = self.0.find_branch(name, Local).unwrap();
+        let local_branch = self.repository.find_branch(name, Local).unwrap();
         let reference = local_branch.get();
-        self.0
+        self.repository
             .checkout_tree(&reference.peel(ObjectType::Tree).unwrap(), None)
             .unwrap();
-        self.0.set_head(reference.name().unwrap()).unwrap();
+        self.repository.set_head(reference.name().unwrap()).unwrap();
     }
 
     fn head(&self) -> Reference<'_> {
-        self.0.head().unwrap()
+        self.repository.head().unwrap()
     }
 }
 
 impl Drop for GitRepository {
     fn drop(&mut self) {
-        Command::new("git")
-            .arg("stash")
-            .arg("pop")
-            .status()
-            .expect("git stash pop should not fail");
+        if self.has_changes_to_unstash {
+            self.repository
+                .stash_pop(0, None)
+                .expect("git stash pop should not fail");
+        }
     }
 }
 
@@ -133,7 +143,7 @@ impl RepositoryOps for GitRepository {
     }
 
     fn get_primary_remote(&self) -> GitRemote {
-        let remotes_array = self.0.remotes().unwrap();
+        let remotes_array = self.repository.remotes().unwrap();
 
         let remotes = remotes_array
             .iter()
@@ -141,14 +151,14 @@ impl RepositoryOps for GitRepository {
             .collect::<Vec<&str>>();
 
         let primary_remote = match remotes.len() {
-            1 => self.0.find_remote(remotes[0]).unwrap(),
+            1 => self.repository.find_remote(remotes[0]).unwrap(),
             2 => {
                 let _origin_remote = remotes.iter().find(|&&remote| remote == "origin").unwrap();
                 let upstream_remote = remotes
                     .iter()
                     .find(|&&remote| remote == "upstream")
                     .unwrap();
-                self.0.find_remote(upstream_remote).unwrap()
+                self.repository.find_remote(upstream_remote).unwrap()
             }
             _ => panic!("Only 1 or 2 remotes supported."),
         };
@@ -164,11 +174,14 @@ impl RepositoryOps for GitRepository {
         kind: ResetType,
         checkout: Option<&mut CheckoutBuilder<'_>>,
     ) {
-        self.0.reset(target, kind, checkout).unwrap()
+        self.repository.reset(target, kind, checkout).unwrap()
     }
 
     fn fast_forward<S: AsRef<str> + Display>(&self, refname: S) {
-        let mut local_branch = self.0.find_branch(refname.as_ref(), Local).unwrap();
+        let mut local_branch = self
+            .repository
+            .find_branch(refname.as_ref(), Local)
+            .unwrap();
 
         let upstream_branch = local_branch.upstream().unwrap();
 
@@ -177,12 +190,12 @@ impl RepositoryOps for GitRepository {
         let upstream_reference = upstream_branch.get();
 
         let upstream_annotated_commit = self
-            .0
+            .repository
             .reference_to_annotated_commit(upstream_reference)
             .unwrap();
 
         let (merge_analysis, _) = self
-            .0
+            .repository
             .merge_analysis_for_ref(local_reference, &[&upstream_annotated_commit])
             .unwrap();
 
@@ -194,8 +207,8 @@ impl RepositoryOps for GitRepository {
             panic!("Unexpected merge_analysis={merge_analysis:?}");
         }
 
-        if *local_reference == self.0.head().unwrap() {
-            self.0
+        if *local_reference == self.repository.head().unwrap() {
+            self.repository
                 .checkout_tree(&upstream_reference.peel(ObjectType::Tree).unwrap(), None)
                 .unwrap();
             debug!("Updated index and tree");
@@ -214,7 +227,7 @@ impl RepositoryOps for GitRepository {
     fn is_safe_pr(&self, pr: &PullRequest) -> bool {
         let base = &pr.base.ref_field;
 
-        let local_base_branch = match self.0.find_branch(base, Local) {
+        let local_base_branch = match self.repository.find_branch(base, Local) {
             Ok(branch) => branch,
             Err(e) => {
                 error!("Error finding local base branch {base}: {e}");
@@ -233,7 +246,7 @@ impl RepositoryOps for GitRepository {
 
         let head = &pr.head.ref_field;
 
-        let local_head_branch = match self.0.find_branch(head, Local) {
+        let local_head_branch = match self.repository.find_branch(head, Local) {
             Ok(branch) => branch,
             Err(e) => {
                 error!("Error finding local head branch {base}: {e}");
@@ -261,6 +274,6 @@ impl RepositoryOps for GitRepository {
     }
 
     fn find_branch(&self, name: &str, branch_type: BranchType) -> Result<Branch<'_>, Error> {
-        self.0.find_branch(name, branch_type)
+        self.repository.find_branch(name, branch_type)
     }
 }
