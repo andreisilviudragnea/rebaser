@@ -107,13 +107,11 @@ impl RepositoryOps for GitRepository {
         if !success {
             error!("Error rebasing {head} onto {base}. Aborting...");
 
-            assert!(Command::new("git")
+            Command::new("git")
                 .arg("rebase")
                 .arg("--abort")
-                .output()
-                .unwrap()
-                .status
-                .success());
+                .status()
+                .expect("git rebase --abort should not fail");
         }
 
         success
