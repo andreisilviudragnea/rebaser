@@ -13,7 +13,7 @@ config = "0.13.3"
 serde_json = "1.0.92"
 tokio = { version = "1.25.0", features = ["full"] }
 regex = "1.7.1"
-toml = "0.7.1"
+toml = "0.7.2"
 url = "2.3.0"
 log = "0.4.17"
 simple_logger = "4.0.0"
