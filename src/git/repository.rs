@@ -81,7 +81,7 @@ impl GitRepository {
         revwalk.hide_ref(since).unwrap();
         revwalk.push_ref(until).unwrap();
 
-        revwalk.into_iter().count()
+        revwalk.count()
     }
 
     fn switch(&self, name: &str) {
