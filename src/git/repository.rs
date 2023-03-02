@@ -151,11 +151,14 @@ impl RepositoryOps for GitRepository {
         let primary_remote = match remotes.len() {
             1 => self.repository.find_remote(remotes[0]).unwrap(),
             2 => {
-                let _origin_remote = remotes.iter().find(|&&remote| remote == "origin").unwrap();
+                let _origin_remote = remotes
+                    .iter()
+                    .find(|&&remote| remote == "origin")
+                    .expect("origin remote not found");
                 let upstream_remote = remotes
                     .iter()
                     .find(|&&remote| remote == "upstream")
-                    .unwrap();
+                    .expect("upstream remote not found");
                 self.repository.find_remote(upstream_remote).unwrap()
             }
             _ => panic!("Only 1 or 2 remotes supported."),
