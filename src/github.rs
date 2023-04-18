@@ -2,6 +2,7 @@ use std::env::var;
 use std::fs;
 
 use async_trait::async_trait;
+
 use octocrab::models::pulls::PullRequest;
 use octocrab::models::Repository;
 use octocrab::params::State;
@@ -30,10 +31,10 @@ fn init_octocrab(host: &str) -> Octocrab {
     let oauth_token = get_oauth_token(host);
 
     OctocrabBuilder::new()
-        .base_url(if host == "github.com" {
-            "https://api.github.com/".to_string()
+        .base_uri(if host == "github.com" {
+            "https://api.github.com".to_string()
         } else {
-            format!("https://{host}/api/v3/")
+            format!("https://{host}/api/v3")
         })
         .unwrap()
         .personal_token(oauth_token)
@@ -71,7 +72,7 @@ fn get_oauth_token(host: &str) -> String {
 impl Github for GithubClient {
     async fn get_repo(&self, owner: &str, repo: &str) -> Repository {
         self.octocrab
-            .get(format!("repos/{owner}/{repo}"), None::<&()>)
+            .get(format!("/repos/{owner}/{repo}"), None::<&()>)
             .await
             .unwrap()
     }
