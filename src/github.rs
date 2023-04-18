@@ -30,7 +30,7 @@ fn init_octocrab(host: &str) -> Octocrab {
     let oauth_token = get_oauth_token(host);
 
     OctocrabBuilder::new()
-        .base_url(if host == "github.com" {
+        .base_uri(if host == "github.com" {
             "https://api.github.com/".to_string()
         } else {
             format!("https://{host}/api/v3/")
