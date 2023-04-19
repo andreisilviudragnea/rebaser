@@ -36,6 +36,8 @@ async fn main() {
     let all_my_open_prs = github.get_all_my_open_prs(&owner, &repo_name).await;
 
     repo.with_revert_to_current_branch(|| loop {
+        info!("Recursively rebasing...");
+
         let mut changes_propagated = false;
 
         all_my_open_prs.iter().for_each(|pr| {
