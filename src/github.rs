@@ -28,8 +28,6 @@ impl GithubClient {
 }
 
 fn init_octocrab(host: &str) -> Octocrab {
-    let oauth_token = get_oauth_token(host);
-
     OctocrabBuilder::new()
         .base_uri(if host == "github.com" {
             "https://api.github.com".to_string()
@@ -37,7 +35,7 @@ fn init_octocrab(host: &str) -> Octocrab {
             format!("https://{host}/api/v3")
         })
         .unwrap()
-        .personal_token(oauth_token)
+        .personal_token(get_oauth_token(host))
         .build()
         .unwrap()
 }
