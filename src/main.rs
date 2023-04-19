@@ -1,5 +1,5 @@
 use log::{debug, info, LevelFilter};
-use octocrab::models::pulls::PullRequest;
+
 use simple_logger::SimpleLogger;
 
 use crate::git::remote::GitRemoteOps;
@@ -35,31 +35,20 @@ async fn main() {
 
     let all_my_open_prs = github.get_all_my_open_prs(&owner, &repo_name).await;
 
-    let num_of_my_open_prs = all_my_open_prs.len();
-
-    let all_my_safe_prs = all_my_open_prs
-        .into_iter()
-        .filter(|pr| repo.is_safe_pr(pr))
-        .collect::<Vec<PullRequest>>();
-
-    info!(
-        "Going to rebase {}/{num_of_my_open_prs} safe pull requests:",
-        all_my_safe_prs.len()
-    );
-
-    all_my_safe_prs.iter().for_each(|pr| {
-        info!(
-            "\"{}\" {} <- {}",
-            pr.title.as_ref().unwrap(),
-            pr.base.ref_field,
-            pr.head.ref_field
-        );
-    });
-
     repo.with_revert_to_current_branch(|| loop {
         let mut changes_propagated = false;
 
-        all_my_safe_prs.iter().for_each(|pr| {
+        all_my_open_prs.iter().for_each(|pr| {
+            if !repo.is_safe_pr(pr) {
+                info!(
+                    "Not rebasing \"{}\" {} <- {} because it is unsafe",
+                    pr.title.as_ref().unwrap(),
+                    pr.base.ref_field,
+                    pr.head.ref_field
+                );
+                return;
+            }
+
             changes_propagated =
                 (repo.rebase(pr) && primary_remote.push(pr, &repo)) || changes_propagated;
         });

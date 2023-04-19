@@ -60,7 +60,7 @@ impl GitRemoteOps for GitRemote<'_> {
             return false;
         }
 
-        info!("Pushing changes to remote...");
+        debug!("Pushing changes to remote...");
 
         let mut options = PushOptions::new();
 

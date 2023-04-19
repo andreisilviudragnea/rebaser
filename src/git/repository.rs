@@ -164,7 +164,7 @@ impl RepositoryOps for GitRepository {
             _ => panic!("Only 1 or 2 remotes supported."),
         };
 
-        info!("Primary remote: {}", primary_remote.name().unwrap());
+        debug!("Primary remote: {}", primary_remote.name().unwrap());
 
         GitRemote::new(primary_remote)
     }
@@ -231,7 +231,7 @@ impl RepositoryOps for GitRepository {
         let local_base_branch = match self.repository.find_branch(base, Local) {
             Ok(branch) => branch,
             Err(e) => {
-                error!("Error finding local base branch {base}: {e}");
+                debug!("Error finding local base branch {base}: {e}");
                 return false;
             }
         };
@@ -250,7 +250,7 @@ impl RepositoryOps for GitRepository {
         let local_head_branch = match self.repository.find_branch(head, Local) {
             Ok(branch) => branch,
             Err(e) => {
-                error!("Error finding local head branch {base}: {e}");
+                debug!("Error finding local head branch {base}: {e}");
                 return false;
             }
         };
