@@ -1,8 +1,9 @@
 use log::{debug, info, LevelFilter};
+use octocrab::models::pulls::PullRequest;
 
 use simple_logger::SimpleLogger;
 
-use crate::git::remote::GitRemoteOps;
+use crate::git::remote::{GitRemote, GitRemoteOps};
 use crate::git::repository::{GitRepository, RepositoryOps};
 use crate::github::{Github, GithubClient};
 
@@ -33,8 +34,18 @@ async fn main() {
 
     repo.fast_forward(github_repo.default_branch.as_ref().unwrap());
 
-    let all_my_open_prs = github.get_all_my_open_prs(&owner, &repo_name).await;
+    rebase_and_push_all_my_open_prs(
+        &repo,
+        primary_remote,
+        github.get_all_my_open_prs(&owner, &repo_name).await,
+    );
+}
 
+fn rebase_and_push_all_my_open_prs(
+    repo: &GitRepository,
+    mut primary_remote: GitRemote,
+    all_my_open_prs: Vec<PullRequest>,
+) {
     repo.with_revert_to_current_branch(|| loop {
         info!("Recursively rebasing...");
 
