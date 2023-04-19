@@ -24,21 +24,25 @@ async fn main() {
 
     primary_remote.fetch();
 
-    let (host, owner, repo_name) = primary_remote.get_host_owner_repo_name();
+    let captures = primary_remote.get_host_owner_repo_name();
 
-    let github = GithubClient::new(&host);
+    let host = &captures[1];
+    let owner = &captures[2];
+    let repo_name = &captures[3];
 
-    let github_repo = github.get_repo(&owner, &repo_name).await;
+    debug!("{host}:{owner}/{repo_name}");
+
+    let github = GithubClient::new(host);
+
+    let github_repo = github.get_repo(owner, repo_name).await;
 
     debug!("Github repo: {github_repo:?}");
 
     repo.fast_forward(github_repo.default_branch.as_ref().unwrap());
 
-    rebase_and_push_all_my_open_prs(
-        &repo,
-        primary_remote,
-        github.get_all_my_open_prs(&owner, &repo_name).await,
-    );
+    let all_my_open_prs = github.get_all_my_open_prs(owner, repo_name).await;
+
+    rebase_and_push_all_my_open_prs(&repo, primary_remote, all_my_open_prs);
 }
 
 fn rebase_and_push_all_my_open_prs(
@@ -63,7 +67,7 @@ fn rebase_and_push_all_my_open_prs(
             }
 
             changes_propagated =
-                (repo.rebase(pr) && primary_remote.push(pr, &repo)) || changes_propagated;
+                (repo.rebase(pr) && primary_remote.push(pr, repo)) || changes_propagated;
         });
 
         if !changes_propagated {

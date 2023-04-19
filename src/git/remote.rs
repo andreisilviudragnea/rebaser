@@ -5,7 +5,7 @@ use git2::ResetType::Hard;
 use git2::{Cred, FetchOptions, PushOptions, Remote, RemoteCallbacks};
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
-use regex::Regex;
+use regex::{Captures, Regex};
 
 use crate::git::repository::{GitRepository, RepositoryOps};
 
@@ -14,7 +14,7 @@ pub(crate) trait GitRemoteOps {
 
     fn push(&mut self, pr: &PullRequest, repo: &GitRepository) -> bool;
 
-    fn get_host_owner_repo_name(&self) -> (String, String, String);
+    fn get_host_owner_repo_name(&self) -> Captures;
 }
 
 pub(crate) struct GitRemote<'repo>(Remote<'repo>);
@@ -88,21 +88,14 @@ impl GitRemoteOps for GitRemote<'_> {
         }
     }
 
-    fn get_host_owner_repo_name(&self) -> (String, String, String) {
+    fn get_host_owner_repo_name(&self) -> Captures {
         let remote_url = self.0.url().unwrap();
         debug!("remote_url: {remote_url}");
 
-        let regex = Regex::new(r".*@(.*):(.*)/(.*).git").unwrap();
-
-        let captures = regex.captures(remote_url).unwrap();
-
-        let host = &captures[1];
-        let owner = &captures[2];
-        let repo_name = &captures[3];
-
-        debug!("{host}:{owner}/{repo_name}");
-
-        (host.to_owned(), owner.to_owned(), repo_name.to_owned())
+        Regex::new(r".*@(.*):(.*)/(.*).git")
+            .unwrap()
+            .captures(remote_url)
+            .unwrap()
     }
 }
 
