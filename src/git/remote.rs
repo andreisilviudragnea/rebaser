@@ -32,14 +32,11 @@ impl GitRemoteOps for GitRemote<'_> {
 
         let remote_name = self.0.name().unwrap();
 
-        let refspecs = format!("+refs/heads/*:refs/remotes/{remote_name}/*");
-        let reflog_msg = format!("Fetched from remote {remote_name}");
-
         self.0
             .fetch(
-                &[refspecs],
+                &[format!("+refs/heads/*:refs/remotes/{remote_name}/*")],
                 Some(&mut fetch_options),
-                Some(reflog_msg.as_str()),
+                Some(format!("Fetched from remote {remote_name}").as_str()),
             )
             .unwrap()
     }
