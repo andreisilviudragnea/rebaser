@@ -1,3 +1,4 @@
+use git2::Repository;
 use log::{debug, info, LevelFilter};
 use octocrab::models::pulls::PullRequest;
 
@@ -18,7 +19,9 @@ async fn main() {
         .init()
         .unwrap();
 
-    let repo = GitRepository::new();
+    let mut repository = Repository::discover(".").unwrap();
+
+    let repo = GitRepository::new(&mut repository);
 
     let mut primary_remote = repo.get_primary_remote();
 

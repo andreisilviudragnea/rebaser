@@ -28,12 +28,12 @@ pub(crate) trait RepositoryOps {
     fn find_branch(&self, name: &str, branch_type: BranchType) -> Result<Branch<'_>, Error>;
 }
 
-pub(crate) struct GitRepository {
-    repository: Repository,
+pub(crate) struct GitRepository<'repo> {
+    repository: &'repo mut Repository,
     has_changes_to_unstash: bool,
 }
 
-impl GitRepository {
+impl GitRepository<'_> {
     pub(crate) fn with_revert_to_current_branch<F: FnMut()>(&self, mut f: F) {
         let current_head = self.head();
 
@@ -60,8 +60,7 @@ impl GitRepository {
         )
     }
 
-    pub(crate) fn new() -> GitRepository {
-        let mut repository = Repository::discover(".").unwrap();
+    pub(crate) fn new(repository: &mut Repository) -> GitRepository {
         let has_changes_to_unstash = repository
             .stash_save2(
                 &repository.signature().expect("signature should not fail"),
@@ -98,7 +97,7 @@ impl GitRepository {
     }
 }
 
-impl Drop for GitRepository {
+impl Drop for GitRepository<'_> {
     fn drop(&mut self) {
         if self.has_changes_to_unstash {
             self.repository
@@ -108,7 +107,7 @@ impl Drop for GitRepository {
     }
 }
 
-impl RepositoryOps for GitRepository {
+impl RepositoryOps for GitRepository<'_> {
     fn rebase(&self, pr: &PullRequest) -> bool {
         let head = &pr.head.ref_field;
         let base = &pr.base.ref_field;
