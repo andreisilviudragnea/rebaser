@@ -3,7 +3,9 @@ use std::process::Command;
 
 use git2::build::CheckoutBuilder;
 use git2::BranchType::Local;
-use git2::{Branch, BranchType, Error, Object, ObjectType, Reference, Repository, ResetType};
+use git2::{
+    Branch, BranchType, Error, Object, ObjectType, Reference, Remote, Repository, ResetType,
+};
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
 
@@ -31,6 +33,7 @@ pub(crate) trait RepositoryOps {
 pub(crate) struct GitRepository<'repo> {
     repository: &'repo mut Repository,
     has_changes_to_unstash: bool,
+    primary_remote: Remote<'repo>,
 }
 
 impl GitRepository<'_> {
@@ -68,9 +71,35 @@ impl GitRepository<'_> {
                 None,
             )
             .is_ok();
+        let remotes_array = repository.remotes().unwrap();
+
+        let remotes = remotes_array
+            .iter()
+            .map(|it| it.unwrap())
+            .collect::<Vec<&str>>();
+
+        let primary_remote = match remotes.len() {
+            1 => repository.find_remote(remotes[0]).unwrap(),
+            2 => {
+                let _origin_remote = remotes
+                    .iter()
+                    .find(|&&remote| remote == "origin")
+                    .expect("origin remote not found");
+                let upstream_remote = remotes
+                    .iter()
+                    .find(|&&remote| remote == "upstream")
+                    .expect("upstream remote not found");
+                repository.find_remote(upstream_remote).unwrap()
+            }
+            _ => panic!("Only 1 or 2 remotes supported."),
+        };
+
+        debug!("Primary remote: {}", primary_remote.name().unwrap());
+
         GitRepository {
             repository,
             has_changes_to_unstash,
+            primary_remote,
         }
     }
 
