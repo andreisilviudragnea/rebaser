@@ -1,6 +1,7 @@
 use git2::Repository;
 use log::{debug, info, LevelFilter};
 use octocrab::models::pulls::PullRequest;
+use std::process::Command;
 
 use simple_logger::SimpleLogger;
 
@@ -18,6 +19,8 @@ async fn main() {
         .with_level(LevelFilter::Info)
         .init()
         .unwrap();
+
+    fetch_all_remotes();
 
     let mut repository = Repository::discover(".").unwrap();
 
@@ -46,6 +49,15 @@ async fn main() {
     let all_my_open_prs = github.get_all_my_open_prs(owner, repo_name).await;
 
     rebase_and_push_all_my_open_prs(&repo, primary_remote, all_my_open_prs);
+}
+
+fn fetch_all_remotes() {
+    assert!(Command::new("git")
+        .arg("fetch")
+        .arg("--all")
+        .status()
+        .expect("git fetch --all should not fail")
+        .success());
 }
 
 fn rebase_and_push_all_my_open_prs(
