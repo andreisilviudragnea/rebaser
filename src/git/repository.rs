@@ -264,7 +264,7 @@ impl RepositoryOps for GitRepository<'_> {
 
         let mut options = PushOptions::new();
 
-        options.remote_callbacks(credentials_callback());
+        options.remote_callbacks(remote_callbacks());
 
         match remote.push(&[format!("+refs/heads/{head}")], Some(&mut options)) {
             Ok(()) => {
@@ -288,7 +288,7 @@ impl RepositoryOps for GitRepository<'_> {
     }
 }
 
-fn credentials_callback<'a>() -> RemoteCallbacks<'a> {
+pub(crate) fn remote_callbacks<'a>() -> RemoteCallbacks<'a> {
     let mut callbacks = RemoteCallbacks::new();
     callbacks.credentials(|_url, username_from_url, _allowed_types| {
         Cred::ssh_key(
