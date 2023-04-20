@@ -26,7 +26,7 @@ async fn main() {
 
     let repo = GitRepository::new(&mut repository);
 
-    let mut origin = repo.get_origin_remote();
+    let origin = repo.get_origin_remote();
 
     let captures = origin.get_host_owner_repo_name();
 
@@ -34,13 +34,15 @@ async fn main() {
 
     debug!("{host}:{owner}/{repo_name}");
 
-    let all_my_open_prs = GithubClient::new(host)
-        .get_all_my_open_prs(owner, repo_name)
-        .await;
+    let github = GithubClient::new(host);
 
-    repo.fast_forward(origin.default_branch());
+    let github_repo = github.get_repo(owner, repo_name).await;
 
-    rebase_and_push_all_my_open_prs(&repo, all_my_open_prs);
+    debug!("Github repo: {github_repo:?}");
+
+    repo.fast_forward(github_repo.default_branch.as_ref().unwrap());
+
+    rebase_and_push_all_my_open_prs(&repo, github.get_all_my_open_prs(owner, repo_name).await);
 }
 
 fn fetch_all_remotes() {

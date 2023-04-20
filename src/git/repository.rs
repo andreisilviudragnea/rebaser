@@ -288,7 +288,7 @@ impl RepositoryOps for GitRepository<'_> {
     }
 }
 
-pub(crate) fn remote_callbacks<'a>() -> RemoteCallbacks<'a> {
+fn remote_callbacks<'a>() -> RemoteCallbacks<'a> {
     let mut callbacks = RemoteCallbacks::new();
     callbacks.credentials(|_url, username_from_url, _allowed_types| {
         Cred::ssh_key(
