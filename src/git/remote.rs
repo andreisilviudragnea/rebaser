@@ -63,7 +63,7 @@ impl GitRemoteOps for GitRemote<'_> {
             .repository
             .find_remote(
                 repo.repository
-                    .branch_upstream_name(local_head_branch.into_reference().name().unwrap())
+                    .branch_upstream_remote(local_head_branch.into_reference().name().unwrap())
                     .unwrap()
                     .as_str()
                     .unwrap(),
