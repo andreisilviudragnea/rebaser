@@ -1,9 +1,10 @@
+use std::env;
 use std::fmt::Display;
 use std::process::Command;
 
-use git2::build::CheckoutBuilder;
 use git2::BranchType::Local;
-use git2::{Branch, BranchType, Error, Object, ObjectType, Reference, Repository, ResetType};
+use git2::ResetType::Hard;
+use git2::{Cred, ObjectType, PushOptions, Reference, RemoteCallbacks, Repository};
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
 
@@ -12,20 +13,13 @@ use crate::git::remote::GitRemote;
 pub(crate) trait RepositoryOps {
     fn rebase(&self, pr: &PullRequest) -> bool;
 
-    fn get_primary_remote(&self) -> GitRemote;
-
-    fn reset(
-        &self,
-        target: &Object<'_>,
-        kind: ResetType,
-        checkout: Option<&mut CheckoutBuilder<'_>>,
-    );
+    fn get_origin_remote(&self) -> GitRemote;
 
     fn fast_forward<S: AsRef<str> + Display>(&self, refname: S);
 
     fn is_safe_pr(&self, pr: &PullRequest) -> bool;
 
-    fn find_branch(&self, name: &str, branch_type: BranchType) -> Result<Branch<'_>, Error>;
+    fn push(&self, pr: &PullRequest) -> bool;
 }
 
 pub(crate) struct GitRepository<'repo> {
@@ -139,42 +133,8 @@ impl RepositoryOps for GitRepository<'_> {
         success
     }
 
-    fn get_primary_remote(&self) -> GitRemote {
-        let remotes_array = self.repository.remotes().unwrap();
-
-        let remotes = remotes_array
-            .iter()
-            .map(|it| it.unwrap())
-            .collect::<Vec<&str>>();
-
-        let primary_remote = match remotes.len() {
-            1 => self.repository.find_remote(remotes[0]).unwrap(),
-            2 => {
-                let _origin_remote = remotes
-                    .iter()
-                    .find(|&&remote| remote == "origin")
-                    .expect("origin remote not found");
-                let upstream_remote = remotes
-                    .iter()
-                    .find(|&&remote| remote == "upstream")
-                    .expect("upstream remote not found");
-                self.repository.find_remote(upstream_remote).unwrap()
-            }
-            _ => panic!("Only 1 or 2 remotes supported."),
-        };
-
-        debug!("Primary remote: {}", primary_remote.name().unwrap());
-
-        GitRemote::new(primary_remote)
-    }
-
-    fn reset(
-        &self,
-        target: &Object<'_>,
-        kind: ResetType,
-        checkout: Option<&mut CheckoutBuilder<'_>>,
-    ) {
-        self.repository.reset(target, kind, checkout).unwrap()
+    fn get_origin_remote(&self) -> GitRemote {
+        GitRemote::new(self.repository.find_remote("origin").unwrap())
     }
 
     fn fast_forward<S: AsRef<str> + Display>(&self, refname: S) {
@@ -267,13 +227,76 @@ impl RepositoryOps for GitRepository<'_> {
             self.compare_refs(local_head_ref, local_base_ref);
 
         debug!(
-        "\"{head}\" is {number_of_commits_ahead} commits ahead, {number_of_commits_behind} commits behind \"{base}\""
-    );
+            "\"{head}\" is {number_of_commits_ahead} commits ahead, {number_of_commits_behind} commits behind \"{base}\""
+        );
 
         true
     }
 
-    fn find_branch(&self, name: &str, branch_type: BranchType) -> Result<Branch<'_>, Error> {
-        self.repository.find_branch(name, branch_type)
+    fn push(&self, pr: &PullRequest) -> bool {
+        let head = &pr.head.ref_field;
+
+        let local_head_branch = self.repository.find_branch(head, Local).unwrap();
+
+        let upstream_head_branch = local_head_branch.upstream().unwrap();
+
+        let upstream_head_ref = upstream_head_branch.get();
+
+        let pr_title = pr.title.as_ref().unwrap();
+
+        if local_head_branch.get() == upstream_head_ref {
+            info!("No changes for \"{pr_title}\". Not pushing to remote.");
+            return false;
+        }
+
+        debug!("Pushing changes to remote...");
+
+        let mut remote = self
+            .repository
+            .find_remote(
+                self.repository
+                    .branch_upstream_remote(local_head_branch.into_reference().name().unwrap())
+                    .unwrap()
+                    .as_str()
+                    .unwrap(),
+            )
+            .unwrap();
+
+        let mut options = PushOptions::new();
+
+        options.remote_callbacks(credentials_callback());
+
+        match remote.push(&[format!("+refs/heads/{head}")], Some(&mut options)) {
+            Ok(()) => {
+                info!("Successfully pushed changes to remote for \"{pr_title}\"");
+                true
+            }
+            Err(e) => {
+                error!("Push to remote failed for \"{pr_title}\": {e}. Resetting...");
+
+                let upstream_commit = upstream_head_ref.peel_to_commit().unwrap();
+
+                self.repository
+                    .reset(upstream_commit.as_object(), Hard, None)
+                    .unwrap();
+
+                info!("Successfully reset.");
+
+                false
+            }
+        }
     }
+}
+
+fn credentials_callback<'a>() -> RemoteCallbacks<'a> {
+    let mut callbacks = RemoteCallbacks::new();
+    callbacks.credentials(|_url, username_from_url, _allowed_types| {
+        Cred::ssh_key(
+            username_from_url.unwrap(),
+            None,
+            std::path::Path::new(&format!("{}/.ssh/id_ed25519", env::var("HOME").unwrap())),
+            None,
+        )
+    });
+    callbacks
 }

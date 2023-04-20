@@ -5,7 +5,7 @@ use std::process::Command;
 
 use simple_logger::SimpleLogger;
 
-use crate::git::remote::{GitRemote, GitRemoteOps};
+use crate::git::remote::GitRemoteOps;
 use crate::git::repository::{GitRepository, RepositoryOps};
 use crate::github::{Github, GithubClient};
 
@@ -26,11 +26,9 @@ async fn main() {
 
     let repo = GitRepository::new(&mut repository);
 
-    let mut primary_remote = repo.get_primary_remote();
+    let origin = repo.get_origin_remote();
 
-    primary_remote.fetch();
-
-    let captures = primary_remote.get_host_owner_repo_name();
+    let captures = origin.get_host_owner_repo_name();
 
     let host = &captures[1];
     let owner = &captures[2];
@@ -48,7 +46,7 @@ async fn main() {
 
     let all_my_open_prs = github.get_all_my_open_prs(owner, repo_name).await;
 
-    rebase_and_push_all_my_open_prs(&repo, primary_remote, all_my_open_prs);
+    rebase_and_push_all_my_open_prs(&repo, all_my_open_prs);
 }
 
 fn fetch_all_remotes() {
@@ -60,11 +58,7 @@ fn fetch_all_remotes() {
         .success());
 }
 
-fn rebase_and_push_all_my_open_prs(
-    repo: &GitRepository,
-    mut primary_remote: GitRemote,
-    all_my_open_prs: Vec<PullRequest>,
-) {
+fn rebase_and_push_all_my_open_prs(repo: &GitRepository, all_my_open_prs: Vec<PullRequest>) {
     repo.with_revert_to_current_branch(|| loop {
         info!("Recursively rebasing...");
 
@@ -81,8 +75,7 @@ fn rebase_and_push_all_my_open_prs(
                 return;
             }
 
-            changes_propagated =
-                (repo.rebase(pr) && primary_remote.push(pr, repo)) || changes_propagated;
+            changes_propagated = (repo.rebase(pr) && repo.push(pr)) || changes_propagated;
         });
 
         if !changes_propagated {
