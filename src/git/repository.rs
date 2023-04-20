@@ -29,7 +29,7 @@ pub(crate) trait RepositoryOps {
 }
 
 pub(crate) struct GitRepository<'repo> {
-    repository: &'repo mut Repository,
+    pub repository: &'repo mut Repository,
     has_changes_to_unstash: bool,
 }
 

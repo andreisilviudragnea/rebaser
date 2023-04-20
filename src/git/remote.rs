@@ -59,14 +59,22 @@ impl GitRemoteOps for GitRemote<'_> {
 
         debug!("Pushing changes to remote...");
 
+        let mut remote = repo
+            .repository
+            .find_remote(
+                repo.repository
+                    .branch_upstream_name(head)
+                    .unwrap()
+                    .as_str()
+                    .unwrap(),
+            )
+            .unwrap();
+
         let mut options = PushOptions::new();
 
         options.remote_callbacks(credentials_callback());
 
-        match self
-            .0
-            .push(&[format!("+refs/heads/{head}")], Some(&mut options))
-        {
+        match remote.push(&[format!("+refs/heads/{head}")], Some(&mut options)) {
             Ok(()) => {
                 info!("Successfully pushed changes to remote for \"{pr_title}\"");
                 true
