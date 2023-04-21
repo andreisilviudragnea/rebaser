@@ -12,7 +12,7 @@ octocrab = "0.20.0"
 config = "0.13.3"
 serde_json = "1.0.96"
 tokio = { version = "1.27.0", features = ["full"] }
-regex = "1.8.0"
+regex = "1.8.1"
 toml = "0.7.3"
 url = "2.3.1"
 log = "0.4.17"
