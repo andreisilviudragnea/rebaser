@@ -4,16 +4,14 @@ use std::process::Command;
 
 use git2::BranchType::Local;
 use git2::ResetType::Hard;
-use git2::{Cred, ObjectType, PushOptions, Reference, RemoteCallbacks, Repository};
+use git2::{Cred, ObjectType, PushOptions, Reference, Remote, RemoteCallbacks, Repository};
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
-
-use crate::git::remote::GitRemote;
 
 pub(crate) trait RepositoryOps {
     fn rebase(&self, pr: &PullRequest) -> bool;
 
-    fn get_origin_remote(&self) -> GitRemote;
+    fn get_origin_remote(&self) -> Remote;
 
     fn fast_forward<S: AsRef<str> + Display>(&self, refname: S);
 
@@ -133,8 +131,8 @@ impl RepositoryOps for GitRepository<'_> {
         success
     }
 
-    fn get_origin_remote(&self) -> GitRemote {
-        GitRemote::new(self.repository.find_remote("origin").unwrap())
+    fn get_origin_remote(&self) -> Remote {
+        self.repository.find_remote("origin").unwrap()
     }
 
     fn fast_forward<S: AsRef<str> + Display>(&self, refname: S) {

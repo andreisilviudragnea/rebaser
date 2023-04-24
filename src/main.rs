@@ -1,12 +1,12 @@
-use git2::Repository;
+use git2::{Remote, Repository};
 use log::{debug, info, LevelFilter};
 use octocrab::models::pulls::PullRequest;
+use regex::{Captures, Regex};
 use std::process::Command;
 
+use crate::git::{GitRepository, RepositoryOps};
 use simple_logger::SimpleLogger;
 
-use crate::git::remote::GitRemoteOps;
-use crate::git::repository::{GitRepository, RepositoryOps};
 use crate::github::{Github, GithubClient};
 
 mod git;
@@ -28,7 +28,7 @@ async fn main() {
 
     let origin = repo.get_origin_remote();
 
-    let captures = origin.get_host_owner_repo_name();
+    let captures = get_host_owner_repo_name(&origin);
 
     let (host, owner, repo_name) = (&captures[1], &captures[2], &captures[3]);
 
@@ -52,6 +52,16 @@ fn fetch_all_remotes() {
         .status()
         .expect("git fetch --all should not fail")
         .success());
+}
+
+fn get_host_owner_repo_name<'repo>(remote: &'repo Remote<'repo>) -> Captures<'repo> {
+    let remote_url = remote.url().unwrap();
+    debug!("remote_url: {remote_url}");
+
+    Regex::new(r".*@(.*):(.*)/(.*).git")
+        .unwrap()
+        .captures(remote_url)
+        .unwrap()
 }
 
 fn rebase_and_push_all_my_open_prs(repo: &GitRepository, all_my_open_prs: Vec<PullRequest>) {
