@@ -42,7 +42,9 @@ async fn main() {
 
     repo.fast_forward(github_repo.default_branch.as_ref().unwrap());
 
-    rebase_and_push_all_my_open_prs(&repo, github.get_all_my_open_prs(owner, repo_name).await);
+    rebase_all_my_open_prs(&repo, github.get_all_my_open_prs(owner, repo_name).await);
+
+    push_all_branches();
 }
 
 fn fetch_all_remotes() {
@@ -64,7 +66,7 @@ fn get_host_owner_repo_name<'repo>(remote: &'repo Remote<'repo>) -> Captures<'re
         .unwrap()
 }
 
-fn rebase_and_push_all_my_open_prs(repo: &GitRepository, all_my_open_prs: Vec<PullRequest>) {
+fn rebase_all_my_open_prs(repo: &GitRepository, all_my_open_prs: Vec<PullRequest>) {
     repo.with_revert_to_current_branch(|| loop {
         info!("Recursively rebasing...");
 
@@ -81,11 +83,26 @@ fn rebase_and_push_all_my_open_prs(repo: &GitRepository, all_my_open_prs: Vec<Pu
                 return;
             }
 
-            changes_propagated = (repo.rebase(pr) && repo.push(pr)) || changes_propagated;
+            if !repo.needs_rebasing(pr) {
+                return;
+            }
+
+            changes_propagated = repo.rebase(pr) || changes_propagated;
         });
 
         if !changes_propagated {
             break;
         }
     });
+}
+
+fn push_all_branches() {
+    assert!(Command::new("git")
+        .arg("-c")
+        .arg("push.default=matching")
+        .arg("push")
+        .arg("--force-with-lease")
+        .status()
+        .expect("git -c push.default=matching push --force-with-lease should not fail")
+        .success());
 }

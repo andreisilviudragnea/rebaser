@@ -1,10 +1,9 @@
-use std::env;
 use std::fmt::Display;
 use std::process::Command;
 
 use git2::BranchType::Local;
-use git2::ResetType::Hard;
-use git2::{Cred, ObjectType, PushOptions, Reference, Remote, RemoteCallbacks, Repository};
+
+use git2::{ObjectType, Reference, Remote, Repository};
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
 
@@ -17,7 +16,7 @@ pub(crate) trait RepositoryOps {
 
     fn is_safe_pr(&self, pr: &PullRequest) -> bool;
 
-    fn push(&self, pr: &PullRequest) -> bool;
+    fn needs_rebasing(&self, pr: &PullRequest) -> bool;
 }
 
 pub(crate) struct GitRepository<'repo> {
@@ -231,70 +230,24 @@ impl RepositoryOps for GitRepository<'_> {
         true
     }
 
-    fn push(&self, pr: &PullRequest) -> bool {
-        let head = &pr.head.ref_field;
-
-        let local_head_branch = self.repository.find_branch(head, Local).unwrap();
+    fn needs_rebasing(&self, pr: &PullRequest) -> bool {
+        let local_head_branch = self
+            .repository
+            .find_branch(&pr.head.ref_field, Local)
+            .unwrap();
 
         let upstream_head_branch = local_head_branch.upstream().unwrap();
 
-        let upstream_head_ref = upstream_head_branch.get();
-
-        let pr_title = pr.title.as_ref().unwrap();
-
-        if local_head_branch.get() == upstream_head_ref {
-            info!("No changes for \"{pr_title}\". Not pushing to remote.");
+        if local_head_branch.get() == upstream_head_branch.get() {
+            info!(
+                "Not rebasing \"{}\" {} <- {} because there are no changes",
+                pr.title.as_ref().unwrap(),
+                pr.base.ref_field,
+                pr.head.ref_field
+            );
             return false;
         }
 
-        debug!("Pushing changes to remote...");
-
-        let mut remote = self
-            .repository
-            .find_remote(
-                self.repository
-                    .branch_upstream_remote(local_head_branch.into_reference().name().unwrap())
-                    .unwrap()
-                    .as_str()
-                    .unwrap(),
-            )
-            .unwrap();
-
-        let mut options = PushOptions::new();
-
-        options.remote_callbacks(remote_callbacks());
-
-        match remote.push(&[format!("+refs/heads/{head}")], Some(&mut options)) {
-            Ok(()) => {
-                info!("Successfully pushed changes to remote for \"{pr_title}\"");
-                true
-            }
-            Err(e) => {
-                error!("Push to remote failed for \"{pr_title}\": {e}. Resetting...");
-
-                let upstream_commit = upstream_head_ref.peel_to_commit().unwrap();
-
-                self.repository
-                    .reset(upstream_commit.as_object(), Hard, None)
-                    .unwrap();
-
-                info!("Successfully reset.");
-
-                false
-            }
-        }
+        true
     }
-}
-
-fn remote_callbacks<'a>() -> RemoteCallbacks<'a> {
-    let mut callbacks = RemoteCallbacks::new();
-    callbacks.credentials(|_url, username_from_url, _allowed_types| {
-        Cred::ssh_key(
-            username_from_url.unwrap(),
-            None,
-            std::path::Path::new(&format!("{}/.ssh/id_ed25519", env::var("HOME").unwrap())),
-            None,
-        )
-    });
-    callbacks
 }
