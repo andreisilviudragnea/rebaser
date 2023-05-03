@@ -8,7 +8,7 @@ use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
 
 pub(crate) trait RepositoryOps {
-    fn rebase(&self, pr: &PullRequest) -> bool;
+    fn rebase(&self, pr: &PullRequest);
 
     fn get_origin_remote(&self) -> Remote;
 
@@ -99,7 +99,7 @@ impl Drop for GitRepository<'_> {
 }
 
 impl RepositoryOps for GitRepository<'_> {
-    fn rebase(&self, pr: &PullRequest) -> bool {
+    fn rebase(&self, pr: &PullRequest) {
         let head = &pr.head.ref_field;
         let base = &pr.base.ref_field;
 
@@ -114,9 +114,7 @@ impl RepositoryOps for GitRepository<'_> {
             .output()
             .unwrap();
 
-        let success = output.status.success();
-
-        if !success {
+        if !output.status.success() {
             error!("Error rebasing {head} onto {base}. Aborting...");
 
             assert!(Command::new("git")
@@ -126,8 +124,6 @@ impl RepositoryOps for GitRepository<'_> {
                 .expect("git rebase --abort should not fail")
                 .success());
         }
-
-        success
     }
 
     fn get_origin_remote(&self) -> Remote {
