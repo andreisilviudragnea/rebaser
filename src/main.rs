@@ -83,6 +83,10 @@ fn rebase_all_my_open_prs(repo: &GitRepository, all_my_open_prs: Vec<PullRequest
                 return;
             }
 
+            if !repo.needs_rebasing(pr) {
+                return;
+            }
+
             changes_propagated = repo.rebase(pr) || changes_propagated;
         });
 
