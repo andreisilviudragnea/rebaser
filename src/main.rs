@@ -42,7 +42,25 @@ async fn main() {
 
     repo.fast_forward(github_repo.default_branch.as_ref().unwrap());
 
-    rebase_all_my_open_prs(&repo, github.get_all_my_open_prs(owner, repo_name).await);
+    let all_my_safe_open_prs = github
+        .get_all_my_open_prs(owner, repo_name)
+        .await
+        .into_iter()
+        .filter(|pr| {
+            if !repo.is_safe_pr(pr) {
+                info!(
+                    "Not rebasing \"{}\" {} <- {} because it is unsafe",
+                    pr.title.as_ref().unwrap(),
+                    pr.base.ref_field,
+                    pr.head.ref_field
+                );
+                return false;
+            }
+            true
+        })
+        .collect();
+
+    rebase_all_my_safe_open_prs(&repo, all_my_safe_open_prs);
 
     push_all_branches();
 }
@@ -66,25 +84,14 @@ fn get_host_owner_repo_name<'repo>(remote: &'repo Remote<'repo>) -> Captures<'re
         .unwrap()
 }
 
-fn rebase_all_my_open_prs(repo: &GitRepository, all_my_open_prs: Vec<PullRequest>) {
+fn rebase_all_my_safe_open_prs(repo: &GitRepository, all_my_safe_open_prs: Vec<PullRequest>) {
     repo.with_revert_to_current_branch(|| loop {
         info!("Recursively rebasing...");
 
         let mut changes_propagated = false;
 
-        all_my_open_prs.iter().for_each(|pr| {
-            if !repo.is_safe_pr(pr) {
-                info!(
-                    "Not rebasing \"{}\" {} <- {} because it is unsafe",
-                    pr.title.as_ref().unwrap(),
-                    pr.base.ref_field,
-                    pr.head.ref_field
-                );
-                return;
-            }
-
+        all_my_safe_open_prs.iter().for_each(|pr| {
             repo.rebase(pr);
-
             changes_propagated = repo.needs_rebasing(pr) || changes_propagated;
         });
 
