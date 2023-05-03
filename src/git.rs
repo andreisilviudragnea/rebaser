@@ -1,4 +1,3 @@
-use std::fmt::Display;
 use std::process::Command;
 
 use git2::BranchType::Local;
@@ -12,7 +11,7 @@ pub(crate) trait RepositoryOps {
 
     fn get_origin_remote(&self) -> Remote;
 
-    fn fast_forward<S: AsRef<str> + Display>(&self, refname: S);
+    fn fast_forward(&self, refname: &str);
 
     fn is_safe_pr(&self, pr: &PullRequest) -> bool;
 
@@ -130,7 +129,7 @@ impl RepositoryOps for GitRepository<'_> {
         self.repository.find_remote("origin").unwrap()
     }
 
-    fn fast_forward<S: AsRef<str> + Display>(&self, refname: S) {
+    fn fast_forward(&self, refname: &str) {
         let mut local_branch = self
             .repository
             .find_branch(refname.as_ref(), Local)
