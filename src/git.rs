@@ -14,8 +14,6 @@ pub(crate) trait RepositoryOps {
     fn fast_forward(&self, refname: &str);
 
     fn is_safe_pr(&self, pr: &PullRequest) -> bool;
-
-    fn needs_rebasing(&self, pr: &PullRequest) -> bool;
 }
 
 pub(crate) struct GitRepository<'repo> {
@@ -221,27 +219,6 @@ impl RepositoryOps for GitRepository<'_> {
         debug!(
             "\"{head}\" is {number_of_commits_ahead} commits ahead, {number_of_commits_behind} commits behind \"{base}\""
         );
-
-        true
-    }
-
-    fn needs_rebasing(&self, pr: &PullRequest) -> bool {
-        let local_head_branch = self
-            .repository
-            .find_branch(&pr.head.ref_field, Local)
-            .unwrap();
-
-        let upstream_head_branch = local_head_branch.upstream().unwrap();
-
-        if local_head_branch.get() == upstream_head_branch.get() {
-            info!(
-                "Not rebasing \"{}\" {} <- {} because there are no changes",
-                pr.title.as_ref().unwrap(),
-                pr.base.ref_field,
-                pr.head.ref_field
-            );
-            return false;
-        }
 
         true
     }

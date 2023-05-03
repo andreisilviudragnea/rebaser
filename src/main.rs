@@ -2,6 +2,7 @@ use git2::{Remote, Repository};
 use log::{debug, info, LevelFilter};
 use octocrab::models::pulls::PullRequest;
 use regex::{Captures, Regex};
+use std::collections::HashMap;
 use std::process::Command;
 
 use crate::git::{GitRepository, RepositoryOps};
@@ -40,11 +41,64 @@ async fn main() {
 
     debug!("Github repo: {github_repo:?}");
 
-    repo.fast_forward(github_repo.default_branch.as_ref().unwrap());
+    let default_branch = github_repo.default_branch.as_ref().unwrap();
 
-    rebase_all_my_open_prs(&repo, github.get_all_my_open_prs(owner, repo_name).await);
+    repo.fast_forward(default_branch);
+
+    let all_my_safe_open_prs = github
+        .get_all_my_open_prs(owner, repo_name)
+        .await
+        .into_iter()
+        .filter(|pr| {
+            if !repo.is_safe_pr(pr) {
+                info!(
+                    "Not rebasing \"{}\" {} <- {} because it is unsafe",
+                    pr.title.as_ref().unwrap(),
+                    pr.base.ref_field,
+                    pr.head.ref_field
+                );
+                return false;
+            }
+            true
+        })
+        .collect();
+
+    let pr_graph = build_pr_graph(all_my_safe_open_prs);
+
+    repo.with_revert_to_current_branch(|| {
+        rebase_recursively(&repo, &pr_graph, default_branch);
+    });
 
     push_all_branches();
+}
+
+fn build_pr_graph(all_my_safe_open_prs: Vec<PullRequest>) -> HashMap<String, Vec<PullRequest>> {
+    let mut result: HashMap<String, Vec<PullRequest>> = HashMap::new();
+
+    for pr in all_my_safe_open_prs {
+        result
+            .entry(pr.base.ref_field.clone())
+            .or_default()
+            .push(pr);
+    }
+
+    result
+}
+
+fn rebase_recursively(
+    repo: &GitRepository,
+    pr_graph: &HashMap<String, Vec<PullRequest>>,
+    base: &str,
+) {
+    let prs = match pr_graph.get(base) {
+        None => return,
+        Some(prs) => prs,
+    };
+
+    for pr in prs {
+        repo.rebase(pr);
+        rebase_recursively(repo, pr_graph, &pr.head.ref_field);
+    }
 }
 
 fn fetch_all_remotes() {
@@ -64,34 +118,6 @@ fn get_host_owner_repo_name<'repo>(remote: &'repo Remote<'repo>) -> Captures<'re
         .unwrap()
         .captures(remote_url)
         .unwrap()
-}
-
-fn rebase_all_my_open_prs(repo: &GitRepository, all_my_open_prs: Vec<PullRequest>) {
-    repo.with_revert_to_current_branch(|| loop {
-        info!("Recursively rebasing...");
-
-        let mut changes_propagated = false;
-
-        all_my_open_prs.iter().for_each(|pr| {
-            if !repo.is_safe_pr(pr) {
-                info!(
-                    "Not rebasing \"{}\" {} <- {} because it is unsafe",
-                    pr.title.as_ref().unwrap(),
-                    pr.base.ref_field,
-                    pr.head.ref_field
-                );
-                return;
-            }
-
-            repo.rebase(pr);
-
-            changes_propagated = repo.needs_rebasing(pr) || changes_propagated;
-        });
-
-        if !changes_propagated {
-            break;
-        }
-    });
 }
 
 fn push_all_branches() {
