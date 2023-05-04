@@ -110,7 +110,7 @@ fn fetch_all_remotes() {
         .success());
 }
 
-fn get_host_owner_repo_name<'repo>(remote: &'repo Remote<'repo>) -> Captures<'repo> {
+fn get_host_owner_repo_name<'a>(remote: &'a Remote<'_>) -> Captures<'a> {
     let remote_url = remote.url().unwrap();
     debug!("remote_url: {remote_url}");
 
