@@ -124,50 +124,14 @@ impl RepositoryOps for GitRepository<'_> {
     }
 
     fn fast_forward(&self, refname: &str) {
-        let mut local_branch = self
-            .repository
-            .find_branch(refname.as_ref(), Local)
-            .unwrap();
+        self.switch(refname);
 
-        let upstream_branch = local_branch.upstream().unwrap();
-
-        let local_reference = local_branch.get_mut();
-
-        let upstream_reference = upstream_branch.get();
-
-        let upstream_annotated_commit = self
-            .repository
-            .reference_to_annotated_commit(upstream_reference)
-            .unwrap();
-
-        let (merge_analysis, _) = self
-            .repository
-            .merge_analysis_for_ref(local_reference, &[&upstream_annotated_commit])
-            .unwrap();
-
-        if merge_analysis.is_up_to_date() {
-            return;
-        }
-
-        if !merge_analysis.is_fast_forward() {
-            panic!("Unexpected merge_analysis={merge_analysis:?}");
-        }
-
-        if *local_reference == self.repository.head().unwrap() {
-            self.repository
-                .checkout_tree(&upstream_reference.peel(ObjectType::Tree).unwrap(), None)
-                .unwrap();
-            debug!("Updated index and tree");
-        }
-
-        local_reference
-            .set_target(
-                upstream_reference.peel(ObjectType::Commit).unwrap().id(),
-                format!("Fast-forward {refname}").as_str(),
-            )
-            .unwrap();
-
-        info!("Fast-forwarded {refname}");
+        assert!(Command::new("git")
+            .arg("merge")
+            .arg("--ff-only")
+            .status()
+            .expect("git merge --ff-only should not fail")
+            .success());
     }
 
     fn is_safe_pr(&self, pr: &PullRequest) -> bool {
