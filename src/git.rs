@@ -19,25 +19,10 @@ pub(crate) trait RepositoryOps {
 pub(crate) struct GitRepository<'repo> {
     repository: &'repo mut Repository,
     has_changes_to_unstash: bool,
+    current_head: String,
 }
 
 impl GitRepository<'_> {
-    pub(crate) fn with_revert_to_current_branch<F: FnMut()>(&self, mut f: F) {
-        let current_head = self.head();
-
-        let name = current_head.name().unwrap();
-
-        debug!("Current HEAD is {name}");
-
-        f();
-
-        debug!("Current HEAD is {}", self.head().name().unwrap());
-
-        self.switch(current_head.shorthand().unwrap());
-
-        debug!("Current HEAD is {}", self.head().name().unwrap());
-    }
-
     fn compare_refs(&self, head: &Reference, base: &Reference) -> (usize, usize) {
         let head_commit_name = head.name().unwrap();
         let base_commit_name = base.name().unwrap();
@@ -56,9 +41,14 @@ impl GitRepository<'_> {
                 None,
             )
             .is_ok();
+
+        let current_head = repository.head().unwrap().name().unwrap().to_string();
+        debug!("Current HEAD is {current_head}");
+
         GitRepository {
             repository,
             has_changes_to_unstash,
+            current_head,
         }
     }
 
@@ -92,6 +82,12 @@ impl Drop for GitRepository<'_> {
                 .stash_pop(0, None)
                 .expect("git stash pop should not fail");
         }
+
+        debug!("Current HEAD is {}", self.head().name().unwrap());
+
+        self.switch(&self.current_head);
+
+        debug!("Current HEAD is {}", self.head().name().unwrap());
     }
 }
 

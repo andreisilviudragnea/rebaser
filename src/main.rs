@@ -65,9 +65,7 @@ async fn main() {
 
     let pr_graph = build_pr_graph(all_my_safe_open_prs);
 
-    repo.with_revert_to_current_branch(|| {
-        rebase_recursively(&repo, &pr_graph, default_branch);
-    });
+    rebase_recursively(&repo, &pr_graph, default_branch);
 
     push_all_branches();
 }
