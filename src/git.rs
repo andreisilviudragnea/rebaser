@@ -42,7 +42,7 @@ impl GitRepository<'_> {
             )
             .is_ok();
 
-        let current_head = repository.head().unwrap().name().unwrap().to_string();
+        let current_head = repository.head().unwrap().shorthand().unwrap().to_string();
         debug!("Current HEAD is {current_head}");
 
         GitRepository {
