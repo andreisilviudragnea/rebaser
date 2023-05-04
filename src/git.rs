@@ -2,7 +2,7 @@ use std::process::Command;
 
 use git2::BranchType::Local;
 
-use git2::{ObjectType, Reference, Remote, Repository};
+use git2::{Reference, Remote, Repository};
 use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
 
@@ -61,13 +61,13 @@ impl GitRepository<'_> {
         revwalk.count()
     }
 
-    fn switch(&self, name: &str) {
-        let local_branch = self.repository.find_branch(name, Local).unwrap();
-        let reference = local_branch.get();
-        self.repository
-            .checkout_tree(&reference.peel(ObjectType::Tree).unwrap(), None)
-            .unwrap();
-        self.repository.set_head(reference.name().unwrap()).unwrap();
+    fn checkout(&self, name: &str) {
+        assert!(Command::new("git")
+            .arg("checkout")
+            .arg(name)
+            .status()
+            .unwrap_or_else(|_| panic!("git checkout {name} should not fail"))
+            .success());
     }
 
     fn head(&self) -> Reference<'_> {
@@ -85,7 +85,7 @@ impl Drop for GitRepository<'_> {
 
         debug!("Current HEAD is {}", self.head().name().unwrap());
 
-        self.switch(&self.current_head);
+        self.checkout(&self.current_head);
 
         debug!("Current HEAD is {}", self.head().name().unwrap());
     }
@@ -124,7 +124,7 @@ impl RepositoryOps for GitRepository<'_> {
     }
 
     fn fast_forward(&self, refname: &str) {
-        self.switch(refname);
+        self.checkout(refname);
 
         assert!(Command::new("git")
             .arg("merge")
