@@ -10,9 +10,12 @@ jobs:
       RUSTFLAGS: "-D warnings"
     steps:
       - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - name: Install latest nightly
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
+          override: true
+          components: rustfmt, clippy
       - name: Cache Dependencies
         uses: Swatinem/rust-cache@v2.2.1
       - name: cargo fmt --all --check
@@ -20,22 +23,18 @@ jobs:
         with:
           command: fmt
           args: --all --check
-          toolchain: nightly
       - name: cargo clippy --release --all-features
         uses: actions-rs/cargo@v1
         with:
           command: clippy
           args: --release --all-features
-          toolchain: nightly
       - name: cargo build --release --all-features
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --all-features
-          toolchain: nightly
       - name: cargo test --release --all-features
         uses: actions-rs/cargo@v1
         with:
           command: test
           args: --release --all-features
-          toolchain: nightly
