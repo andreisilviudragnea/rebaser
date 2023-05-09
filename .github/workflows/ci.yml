@@ -20,18 +20,22 @@ jobs:
         with:
           command: fmt
           args: --all --check
+          toolchain: nightly
       - name: cargo clippy --release --all-features
         uses: actions-rs/cargo@v1
         with:
           command: clippy
           args: --release --all-features
+          toolchain: nightly
       - name: cargo build --release --all-features
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --all-features
+          toolchain: nightly
       - name: cargo test --release --all-features
         uses: actions-rs/cargo@v1
         with:
           command: test
           args: --release --all-features
+          toolchain: nightly
