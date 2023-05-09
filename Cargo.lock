@@ -1077,7 +1077,6 @@ dependencies = [
 name = "rebaser"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "config",
  "git2",
  "log",

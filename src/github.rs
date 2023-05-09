@@ -1,15 +1,12 @@
 use std::env::var;
 use std::fs;
 
-use async_trait::async_trait;
-
 use octocrab::models::pulls::PullRequest;
 use octocrab::models::Repository;
 use octocrab::params::State;
 use octocrab::{Octocrab, OctocrabBuilder};
 use toml::Value;
 
-#[async_trait]
 pub(crate) trait Github {
     async fn get_repo(&self, owner: &str, repo: &str) -> Repository;
     async fn get_all_my_open_prs(&self, owner: &str, repo: &str) -> Vec<PullRequest>;
@@ -66,7 +63,6 @@ fn get_oauth_token(host: &str) -> String {
         .to_owned()
 }
 
-#[async_trait]
 impl Github for GithubClient {
     async fn get_repo(&self, owner: &str, repo: &str) -> Repository {
         self.octocrab
