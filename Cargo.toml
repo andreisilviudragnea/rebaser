@@ -15,5 +15,5 @@ tokio = { version = "1.30.0", features = ["full"] }
 regex = "1.9.3"
 toml = "0.7.6"
 url = "2.4.0"
-log = "0.4.19"
+log = "0.4.20"
 simple_logger = "4.2.0"
