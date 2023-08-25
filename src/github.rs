@@ -94,11 +94,11 @@ impl Github for GithubClient {
             all_prs.append(&mut page.items);
         }
 
-        let current_user = self.octocrab.current().user().await.unwrap();
+        let current_user_id = self.octocrab.current().user().await.unwrap().id;
 
         all_prs
             .into_iter()
-            .filter(|pr| pr.user.as_ref().unwrap().id == current_user.id)
+            .filter(|pr| pr.user.as_ref().unwrap().id == current_user_id)
             .collect()
     }
 }
