@@ -1,7 +1,7 @@
-use log::{debug, info};
 use std::env::var;
 use std::fs;
 
+use log::debug;
 use octocrab::models::pulls::PullRequest;
 use octocrab::models::Repository;
 use octocrab::params::State;
@@ -98,12 +98,7 @@ impl Github for GithubClient {
 
         all_prs
             .into_iter()
-            .filter(|pr| {
-                let user = pr.user.as_ref().unwrap();
-                let result = **user == current_user;
-                info!("user {user:?} current_user {current_user:?} result {result}");
-                result
-            })
+            .filter(|pr| pr.user.as_ref().unwrap().id == current_user.id)
             .collect()
     }
 }
