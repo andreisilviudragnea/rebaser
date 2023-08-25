@@ -1,5 +1,6 @@
 use std::env::var;
 use std::fs;
+use log::info;
 
 use octocrab::models::pulls::PullRequest;
 use octocrab::models::Repository;
@@ -81,10 +82,14 @@ impl Github for GithubClient {
             .await
             .unwrap();
 
+        info!("page {page:?}");
+
         let mut all_prs = page.items;
 
         while let Some(url) = page.next {
             page = self.octocrab.get_page(&Some(url)).await.unwrap().unwrap();
+
+            info!("page {page:?}");
 
             all_prs.append(&mut page.items);
         }
