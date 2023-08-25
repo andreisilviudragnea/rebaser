@@ -47,13 +47,11 @@ async fn main() {
 
     repo.fast_forward(default_branch);
 
-    let vec = github
-        .get_all_my_open_prs(owner, repo_name)
-        .await;
+    let vec = github.get_all_my_open_prs(owner, repo_name).await;
 
-    info!("prs :{vec:?}");
+    info!("All my open PRs :{vec:?}");
 
-    let all_my_safe_open_prs = vec
+    let all_my_safe_open_prs: Vec<_> = vec
         .into_iter()
         .filter(|pr| {
             if !repo.is_safe_pr(pr) {
@@ -68,6 +66,10 @@ async fn main() {
             true
         })
         .collect();
+
+    if all_my_safe_open_prs.is_empty() {
+        return;
+    }
 
     let pr_graph = build_pr_graph(all_my_safe_open_prs);
 
