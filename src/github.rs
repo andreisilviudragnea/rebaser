@@ -1,6 +1,6 @@
+use log::info;
 use std::env::var;
 use std::fs;
-use log::info;
 
 use octocrab::models::pulls::PullRequest;
 use octocrab::models::Repository;
