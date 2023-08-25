@@ -1,4 +1,4 @@
-use log::info;
+use log::{debug, info};
 use std::env::var;
 use std::fs;
 
@@ -82,14 +82,14 @@ impl Github for GithubClient {
             .await
             .unwrap();
 
-        info!("page {page:?}");
+        debug!("page {page:?}");
 
         let mut all_prs = page.items;
 
         while let Some(url) = page.next {
             page = self.octocrab.get_page(&Some(url)).await.unwrap().unwrap();
 
-            info!("page {page:?}");
+            debug!("page {page:?}");
 
             all_prs.append(&mut page.items);
         }
@@ -98,7 +98,12 @@ impl Github for GithubClient {
 
         all_prs
             .into_iter()
-            .filter(|pr| **pr.user.as_ref().unwrap() == current_user)
+            .filter(|pr| {
+                let user = pr.user.as_ref().unwrap();
+                let result = **user == current_user;
+                info!("user {user:?} current_user {current_user:?} result {result}");
+                result
+            })
             .collect()
     }
 }
