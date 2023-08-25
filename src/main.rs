@@ -49,7 +49,7 @@ async fn main() {
 
     let vec = github.get_all_my_open_prs(owner, repo_name).await;
 
-    info!("All my open PRs :{vec:?}");
+    debug!("All my open PRs :{vec:?}");
 
     let all_my_safe_open_prs: Vec<_> = vec
         .into_iter()
