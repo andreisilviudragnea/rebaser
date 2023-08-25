@@ -47,9 +47,13 @@ async fn main() {
 
     repo.fast_forward(default_branch);
 
-    let all_my_safe_open_prs = github
+    let vec = github
         .get_all_my_open_prs(owner, repo_name)
-        .await
+        .await;
+
+    info!("prs :{vec:?}");
+
+    let all_my_safe_open_prs = vec
         .into_iter()
         .filter(|pr| {
             if !repo.is_safe_pr(pr) {
