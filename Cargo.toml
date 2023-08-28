@@ -14,6 +14,6 @@ serde_json = "1.0.105"
 tokio = { version = "1.32.0", features = ["full"] }
 regex = "1.9.4"
 toml = "0.7.6"
-url = "2.4.0"
+url = "2.4.1"
 log = "0.4.20"
 simple_logger = "4.2.0"
