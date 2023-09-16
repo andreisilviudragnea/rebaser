@@ -207,8 +207,9 @@ impl RepositoryOps for GitRepository<'_> {
                 1 => commit = parents.pop().unwrap(),
                 parents_len => {
                     info!(
-                        "Branch {branch} has linear history until commit {} with {} parents",
+                        "Branch {branch} has linear history until commit {} {} with {} parents",
                         commit.id(),
+                        commit.message().unwrap(),
                         parents_len
                     );
                     break;
