@@ -190,7 +190,10 @@ impl RepositoryOps for GitRepository<'_> {
     }
 
     fn has_linear_history(&self, branch: &str) -> bool {
-        let oid = self.repository.refname_to_id(branch).unwrap();
+        let oid = self
+            .repository
+            .refname_to_id(&format!("refs/heads/{branch}"))
+            .unwrap();
         let mut commit = self.repository.find_commit(oid).unwrap();
 
         loop {
