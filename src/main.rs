@@ -141,6 +141,9 @@ fn push_rebased_branches(rebased_branches: &[&str]) {
 
     assert!(git_push_command
         .status()
-        .expect("git push --force-with-lease <rebased_branch>... should not fail")
+        .unwrap_or_else(|_| panic!(
+            "git push --force-with-lease {} should not fail",
+            rebased_branches.join(" ")
+        ))
         .success());
 }
