@@ -202,7 +202,14 @@ impl RepositoryOps for GitRepository<'_> {
             match parents.len() {
                 0 => return true,
                 1 => commit = parents.pop().unwrap(),
-                _ => return false,
+                parents_len => {
+                    info!(
+                        "Linear history diverges at commit {} with {} parents",
+                        commit.id(),
+                        parents_len
+                    );
+                    return false;
+                }
             }
         }
     }
