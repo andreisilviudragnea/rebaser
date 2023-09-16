@@ -7,7 +7,7 @@ use log::{debug, error, info};
 use octocrab::models::pulls::PullRequest;
 
 pub(crate) trait RepositoryOps {
-    fn rebase(&self, pr: &PullRequest);
+    fn rebase(&self, pr: &PullRequest) -> bool;
 
     fn get_origin_remote(&self) -> Remote;
 
@@ -92,7 +92,7 @@ impl Drop for GitRepository<'_> {
 }
 
 impl RepositoryOps for GitRepository<'_> {
-    fn rebase(&self, pr: &PullRequest) {
+    fn rebase(&self, pr: &PullRequest) -> bool {
         let head = &pr.head.ref_field;
         let base = &pr.base.ref_field;
 
@@ -116,7 +116,11 @@ impl RepositoryOps for GitRepository<'_> {
                 .status()
                 .expect("git rebase --abort should not fail")
                 .success());
+
+            return false;
         }
+
+        true
     }
 
     fn get_origin_remote(&self) -> Remote {

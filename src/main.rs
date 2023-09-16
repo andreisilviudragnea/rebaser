@@ -73,9 +73,11 @@ async fn main() {
 
     let pr_graph = build_pr_graph(all_my_safe_open_prs);
 
-    rebase_recursively(&repo, &pr_graph, default_branch);
+    let mut rebased_branches = Vec::new();
 
-    push_all_branches();
+    rebase_recursively(&repo, &pr_graph, &mut rebased_branches, default_branch);
+
+    push_rebased_branches(&rebased_branches);
 }
 
 fn build_pr_graph(all_my_safe_open_prs: Vec<PullRequest>) -> HashMap<String, Vec<PullRequest>> {
@@ -91,9 +93,10 @@ fn build_pr_graph(all_my_safe_open_prs: Vec<PullRequest>) -> HashMap<String, Vec
     result
 }
 
-fn rebase_recursively(
+fn rebase_recursively<'a>(
     repo: &GitRepository,
-    pr_graph: &HashMap<String, Vec<PullRequest>>,
+    pr_graph: &'a HashMap<String, Vec<PullRequest>>,
+    rebased_branches: &mut Vec<&'a str>,
     base: &str,
 ) {
     let prs = match pr_graph.get(base) {
@@ -102,8 +105,10 @@ fn rebase_recursively(
     };
 
     for pr in prs {
-        repo.rebase(pr);
-        rebase_recursively(repo, pr_graph, &pr.head.ref_field);
+        if repo.rebase(pr) {
+            rebased_branches.push(&pr.head.ref_field);
+        };
+        rebase_recursively(repo, pr_graph, rebased_branches, &pr.head.ref_field);
     }
 }
 
@@ -126,13 +131,16 @@ fn get_host_owner_repo_name<'a>(remote: &'a Remote<'_>) -> Captures<'a> {
         .unwrap()
 }
 
-fn push_all_branches() {
-    assert!(Command::new("git")
-        .arg("-c")
-        .arg("push.default=matching")
-        .arg("push")
-        .arg("--force-with-lease")
+fn push_rebased_branches(rebased_branches: &[&str]) {
+    let mut git_push_command = Command::new("git");
+    let git_push_command = git_push_command.arg("push").arg("--force-with-lease");
+
+    for rebased_branch in rebased_branches {
+        git_push_command.arg(rebased_branch);
+    }
+
+    assert!(git_push_command
         .status()
-        .expect("git -c push.default=matching push --force-with-lease should not fail")
+        .expect("git push --force-with-lease <rebased_branch>... should not fail")
         .success());
 }
