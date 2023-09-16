@@ -47,6 +47,15 @@ async fn main() {
 
     repo.fast_forward(default_branch);
 
+    info!(
+        "Repository {} linear history",
+        if repo.has_linear_history(default_branch) {
+            "has"
+        } else {
+            "does not have"
+        }
+    );
+
     let vec = github.get_all_my_open_prs(owner, repo_name).await;
 
     debug!("All my open PRs :{vec:?}");

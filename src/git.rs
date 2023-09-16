@@ -14,6 +14,8 @@ pub(crate) trait RepositoryOps {
     fn fast_forward(&self, refname: &str);
 
     fn is_safe_pr(&self, pr: &PullRequest) -> bool;
+
+    fn has_linear_history(&self, branch: &str) -> bool;
 }
 
 pub(crate) struct GitRepository<'repo> {
@@ -185,5 +187,20 @@ impl RepositoryOps for GitRepository<'_> {
         );
 
         true
+    }
+
+    fn has_linear_history(&self, branch: &str) -> bool {
+        let oid = self.repository.refname_to_id(branch).unwrap();
+        let mut commit = self.repository.find_commit(oid).unwrap();
+
+        loop {
+            let mut parents = commit.parents().collect::<Vec<_>>();
+
+            match parents.len() {
+                0 => return true,
+                1 => commit = parents.pop().unwrap(),
+                _ => return false,
+            }
+        }
     }
 }
