@@ -139,6 +139,8 @@ fn push_rebased_branches(rebased_branches: &[&str]) {
         git_push_command.arg(rebased_branch);
     }
 
+    info!("{:?}", git_push_command);
+
     assert!(git_push_command
         .status()
         .unwrap_or_else(|_| panic!(
