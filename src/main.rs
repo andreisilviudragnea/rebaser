@@ -77,7 +77,7 @@ async fn main() {
 
     rebase_recursively(&repo, &pr_graph, &mut rebased_branches, default_branch);
 
-    push_rebased_branches(&rebased_branches);
+    push_rebased_branches(&origin, &rebased_branches);
 }
 
 fn build_pr_graph(all_my_safe_open_prs: Vec<PullRequest>) -> HashMap<String, Vec<PullRequest>> {
@@ -131,15 +131,18 @@ fn get_host_owner_repo_name<'a>(remote: &'a Remote<'_>) -> Captures<'a> {
         .unwrap()
 }
 
-fn push_rebased_branches(rebased_branches: &[&str]) {
+fn push_rebased_branches(remote: &Remote, rebased_branches: &[&str]) {
     let mut git_push_command = Command::new("git");
-    let git_push_command = git_push_command.arg("push").arg("--force-with-lease");
+    let git_push_command = git_push_command
+        .arg("push")
+        .arg("--force-with-lease")
+        .arg(remote.name().unwrap());
 
     for rebased_branch in rebased_branches {
         git_push_command.arg(rebased_branch);
     }
 
-    info!("{:?}", git_push_command);
+    debug!("{:?}", git_push_command);
 
     assert!(git_push_command
         .status()
