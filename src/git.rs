@@ -15,7 +15,7 @@ pub(crate) trait RepositoryOps {
 
     fn is_safe_pr(&self, pr: &PullRequest) -> bool;
 
-    fn has_linear_history(&self, branch: &str) -> bool;
+    fn check_linear_history(&self, branch: &str);
 }
 
 pub(crate) struct GitRepository<'repo> {
@@ -189,7 +189,7 @@ impl RepositoryOps for GitRepository<'_> {
         true
     }
 
-    fn has_linear_history(&self, branch: &str) -> bool {
+    fn check_linear_history(&self, branch: &str) {
         let oid = self
             .repository
             .refname_to_id(&format!("refs/heads/{branch}"))
@@ -200,15 +200,18 @@ impl RepositoryOps for GitRepository<'_> {
             let mut parents = commit.parents().collect::<Vec<_>>();
 
             match parents.len() {
-                0 => return true,
+                0 => {
+                    info!("Branch {branch} has complete linear history");
+                    break;
+                }
                 1 => commit = parents.pop().unwrap(),
                 parents_len => {
                     info!(
-                        "Linear history diverges at commit {} with {} parents",
+                        "Branch {branch} has linear history until commit {} with {} parents",
                         commit.id(),
                         parents_len
                     );
-                    return false;
+                    break;
                 }
             }
         }
