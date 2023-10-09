@@ -11,7 +11,7 @@ git2 = "0.18.1"
 octocrab = "0.31.1"
 config = "0.13.3"
 serde_json = "1.0.107"
-tokio = { version = "1.32.0", features = ["full"] }
+tokio = { version = "1.33.0", features = ["full"] }
 regex = "1.9.6"
 toml = "0.8.2"
 url = "2.4.1"
