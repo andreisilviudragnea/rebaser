@@ -1,5 +1,3 @@
-#![feature(async_fn_in_trait)]
-
 use git2::{Remote, Repository};
 use log::{debug, info, LevelFilter};
 use octocrab::models::pulls::PullRequest;
