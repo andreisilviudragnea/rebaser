@@ -18,13 +18,13 @@ pub(crate) trait RepositoryOps {
     fn check_linear_history(&self, branch: &str);
 }
 
-pub(crate) struct GitRepository<'repo> {
-    repository: &'repo mut Repository,
+pub(crate) struct GitRepository {
+    repository: Repository,
     has_changes_to_unstash: bool,
     current_head: String,
 }
 
-impl GitRepository<'_> {
+impl GitRepository {
     fn compare_refs(&self, head: &Reference, base: &Reference) -> (usize, usize) {
         let head_commit_name = head.name().unwrap();
         let base_commit_name = base.name().unwrap();
@@ -35,7 +35,9 @@ impl GitRepository<'_> {
         )
     }
 
-    pub(crate) fn new(repository: &mut Repository) -> GitRepository {
+    pub(crate) fn new() -> GitRepository {
+        let mut repository = Repository::discover(".").unwrap();
+
         let has_changes_to_unstash = repository
             .stash_save2(
                 &repository.signature().expect("signature should not fail"),
@@ -77,7 +79,7 @@ impl GitRepository<'_> {
     }
 }
 
-impl Drop for GitRepository<'_> {
+impl Drop for GitRepository {
     fn drop(&mut self) {
         if self.has_changes_to_unstash {
             self.repository
@@ -93,7 +95,7 @@ impl Drop for GitRepository<'_> {
     }
 }
 
-impl RepositoryOps for GitRepository<'_> {
+impl RepositoryOps for GitRepository {
     fn rebase(&self, pr: &PullRequest) -> bool {
         let head = &pr.head.ref_field;
         let base = &pr.base.ref_field;

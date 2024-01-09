@@ -1,4 +1,4 @@
-use git2::{Remote, Repository};
+use git2::Remote;
 use log::{debug, info, LevelFilter};
 use octocrab::models::pulls::PullRequest;
 use regex::{Captures, Regex};
@@ -23,9 +23,7 @@ async fn main() {
 
     fetch_all_remotes();
 
-    let mut repository = Repository::discover(".").unwrap();
-
-    let repo = GitRepository::new(&mut repository);
+    let repo = GitRepository::new();
 
     let origin = repo.get_origin_remote();
 
