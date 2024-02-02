@@ -9,7 +9,7 @@ edition = "2021"
 [dependencies]
 git2 = "0.18.1"
 octocrab = "0.33.3"
-config = "0.13.4"
+config = "0.14.0"
 serde_json = "1.0.113"
 tokio = { version = "1.35.1", features = ["full"] }
 regex = "1.10.3"
