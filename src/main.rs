@@ -94,7 +94,7 @@ fn group_branches_by_remote<'a>(
                         .unwrap()
                         .to_string(),
                 )
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(branch);
             branches_by_remote
         })
