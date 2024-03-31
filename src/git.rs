@@ -104,7 +104,11 @@ impl RepositoryOps for GitRepository {
 
         let pr_title = pr.title.as_ref().unwrap();
 
-        info!("Rebasing \"{pr_title}\" {base} <- {head}...");
+        info!(
+            "Rebasing \"{pr_title}\" {base} (remote {}) <- {head} (remote {})...",
+            self.get_remote_for_branch(base).name().unwrap(),
+            self.get_remote_for_branch(head).name().unwrap()
+        );
 
         let output = Command::new("git")
             .arg("rebase")
