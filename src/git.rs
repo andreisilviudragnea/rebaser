@@ -16,6 +16,8 @@ pub(crate) trait RepositoryOps {
     fn is_safe_pr(&self, pr: &PullRequest) -> bool;
 
     fn check_linear_history(&self, branch: &str);
+
+    fn get_remote_for_branch(&self, branch: &str) -> Remote;
 }
 
 pub(crate) struct GitRepository {
@@ -218,5 +220,38 @@ impl RepositoryOps for GitRepository {
                 }
             }
         }
+    }
+
+    fn get_remote_for_branch(&self, branch: &str) -> Remote {
+        // Look up the local branch by name
+        let branch = self
+            .repository
+            .find_branch(branch, Local)
+            .expect("Branch should be present");
+
+        // Get the branch's upstream branch
+        let upstream = branch.upstream().expect("Upstream should be set");
+
+        // Extract the name of the remote from the upstream branch's name
+        let remote_name = upstream
+            .name()
+            .expect("Name should not fail")
+            .expect("Name should be valid UTF-8");
+        let remote_name = remote_name
+            .split('/')
+            .next()
+            .ok_or("Invalid remote branch name format")
+            .unwrap();
+
+        debug!("Remote name: {}", remote_name);
+
+        let remote = self
+            .repository
+            .find_remote(remote_name)
+            .expect("Remote should be present");
+
+        debug!("Remote URL: {}", remote.url().unwrap_or("No URL"));
+
+        remote
     }
 }

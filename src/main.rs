@@ -75,7 +75,29 @@ async fn main() {
 
     rebase_recursively(&repo, &pr_graph, &mut rebased_branches, default_branch);
 
-    push_rebased_branches(&origin, &rebased_branches);
+    for (remote, rebased_branches) in group_branches_by_remote(&repo, rebased_branches) {
+        push_rebased_branches(&remote, &rebased_branches);
+    }
+}
+
+fn group_branches_by_remote<'a>(
+    repo: &GitRepository,
+    rebased_branches: Vec<&'a str>,
+) -> HashMap<String, Vec<&'a str>> {
+    rebased_branches
+        .into_iter()
+        .fold(HashMap::new(), |mut branches_by_remote, branch| {
+            branches_by_remote
+                .entry(
+                    repo.get_remote_for_branch(branch)
+                        .name()
+                        .unwrap()
+                        .to_string(),
+                )
+                .or_insert_with(Vec::new)
+                .push(branch);
+            branches_by_remote
+        })
 }
 
 fn build_pr_graph(all_my_safe_open_prs: Vec<PullRequest>) -> HashMap<String, Vec<PullRequest>> {
@@ -129,12 +151,12 @@ fn get_host_owner_repo_name<'a>(remote: &'a Remote<'_>) -> Captures<'a> {
         .unwrap()
 }
 
-fn push_rebased_branches(remote: &Remote, rebased_branches: &[&str]) {
+fn push_rebased_branches(remote: &str, rebased_branches: &[&str]) {
     let mut git_push_command = Command::new("git");
     let git_push_command = git_push_command
         .arg("push")
         .arg("--force-with-lease")
-        .arg(remote.name().unwrap());
+        .arg(remote);
 
     for rebased_branch in rebased_branches {
         git_push_command.arg(rebased_branch);
