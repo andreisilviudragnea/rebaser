@@ -18,6 +18,7 @@ async fn main() {
     SimpleLogger::new()
         .with_utc_timestamps()
         .with_level(LevelFilter::Info)
+        .env()
         .init()
         .unwrap();
 
