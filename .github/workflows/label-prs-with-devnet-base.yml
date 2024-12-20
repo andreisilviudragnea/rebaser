@@ -10,12 +10,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Get open PRs with devnet as base
-        id: list-prs
+      - name: Add label to all PRs with devnet base
         uses: actions/github-script@v6
         with:
           script: |
             const baseBranch = "devnet"; // Base branch to filter
+            const labelName = "devnet"; // Label to apply
+
+            // Fetch open pull requests with the base branch as 'devnet'
             const { data: pullRequests } = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -25,27 +27,14 @@ jobs:
 
             if (pullRequests.length === 0) {
               console.log("No open pull requests with base branch 'devnet'.");
-            }
-
-            core.setOutput("pr_numbers", JSON.stringify(pullRequests.map(pr => pr.number)));
-
-      - name: Add label to PRs
-        if: steps.list-prs.outputs.pr_numbers != '[]' # Only proceed if there are PRs
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const labelName = "devnet"; // Replace with your desired label name
-            const prNumbers = JSON.parse(${{ steps.list-prs.outputs.pr_numbers }});
-
-            if (prNumbers.length === 0) {
-              console.log("No PRs to label.");
             } else {
-              for (const prNumber of prNumbers) {
-                console.log(`Adding label to PR #${prNumber}`);
+              console.log(`Found ${pullRequests.length} pull request(s) with base branch 'devnet'.`);
+              for (const pr of pullRequests) {
+                console.log(`Adding label to PR #${pr.number}`);
                 await github.rest.issues.addLabels({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  issue_number: prNumber,
+                  issue_number: pr.number,
                   labels: [labelName],
                 });
               }
