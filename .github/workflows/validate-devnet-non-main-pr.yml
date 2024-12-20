@@ -1,4 +1,4 @@
-name: Validate devnet PR
+name: Validate devnet non-main PR
 
 on:
   pull_request:
@@ -9,8 +9,11 @@ on:
       - devnet
 
 jobs:
-  validate-devnet:
+  validate-devnet-non-main-pr:
     runs-on: ubuntu-latest
+
+    # Add a condition to skip the job if the head branch is main
+    if: github.event.pull_request.head.ref != 'main'
 
     steps:
       # Checkout the branch
