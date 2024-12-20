@@ -33,16 +33,6 @@ jobs:
           git fetch origin $BASE_BRANCH
           git checkout $BASE_BRANCH
 
-      - name: Check for merge commits
-        run: |
-          git checkout $HEAD_BRANCH
-          if git log --merges origin/$BASE_BRANCH..HEAD | grep -q .; then
-            echo "Merge commits found in the PR branch."
-            exit 1
-          else
-            echo "No merge commits found."
-          fi
-
       - name: Check if PR branch is rebased
         run: |
           git checkout $HEAD_BRANCH
@@ -51,4 +41,14 @@ jobs:
             exit 1
           else
             echo "PR branch is rebased on top of $BASE_BRANCH."
+          fi
+
+      - name: Check for merge commits
+        run: |
+          git checkout $HEAD_BRANCH
+          if git log --merges origin/$BASE_BRANCH..HEAD | grep -q .; then
+            echo "Merge commits found in the PR branch."
+            exit 1
+          else
+            echo "No merge commits found."
           fi
