@@ -1,2 +1,3 @@
-# rebaser test
+# rebaser
+
 Automatic recursive git rebaser
