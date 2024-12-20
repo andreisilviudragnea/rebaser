@@ -3,6 +3,7 @@ name: Validate devnet non-main PR
 on:
   pull_request:
     branches:
+      - main
       - devnet
   push:
     branches:
