@@ -15,7 +15,7 @@ jobs:
         with:
           script: |
             const baseBranch = "devnet"; // Base branch to filter
-            const labelName = "devnet"; // Label to apply and remove
+            const labelName = "devnet-again"; // Label to apply and remove
 
             // Fetch open pull requests with the base branch as 'devnet'
             const { data: pullRequests } = await github.rest.pulls.list({
