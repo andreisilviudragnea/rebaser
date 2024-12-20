@@ -13,15 +13,15 @@ jobs:
   validate-devnet-non-main-pr:
     runs-on: ubuntu-latest
 
-    # Skip the job if the base or head branch is 'main'
-    if: github.event.pull_request.base.ref != 'main' && github.event.pull_request.head.ref != 'main'
+    # Skip the job if the base or head branch is 'main', or if the push isn't part of a PR
+    if: github.event.pull_request.base.ref != 'main' && github.event.pull_request.head.ref != 'main' && github.event.pull_request != null
 
     steps:
       # Checkout the branch
       - name: Checkout Branch
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0 # Fetch full history to inspect commits
+          fetch-depth: 0  # Fetch full history to inspect commits
 
       # Ensure branch is rebased on top of the latest base branch
       - name: Check if branch is rebased on top of the base branch
