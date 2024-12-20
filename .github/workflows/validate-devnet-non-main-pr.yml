@@ -23,21 +23,30 @@ jobs:
         with:
           fetch-depth: 0  # Fetch full history to inspect commits
 
-      # Ensure branch is rebased on top of the latest base branch
-      - name: Check if branch is rebased on top of the base branch
-        run: |
-          # Fetch the latest base branch
-          BASE_BRANCH=${GITHUB_EVENT_PULL_REQUEST_BASE_REF}
-          git fetch origin $BASE_BRANCH
+      - name: Fetch all branches
+        run: git fetch --all
 
-          # Compare the base of the head branch to the base branch
-          BASE_COMMIT=$(git merge-base HEAD origin/$BASE_BRANCH)
-          if [ "$BASE_COMMIT" != "$(git rev-parse origin/$BASE_BRANCH)" ]; then
-            echo "The branch is not rebased on top of the latest $BASE_BRANCH branch."
-            echo "Please rebase your branch on top of $BASE_BRANCH."
+      - name: Check if head branch is rebased on top of base branch
+        run: |
+          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
+          HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
+
+          echo "Base Branch: $BASE_BRANCH"
+          echo "Head Branch: $HEAD_BRANCH"
+
+          # Get the latest commit hash of both base and head branch
+          BASE_HASH=$(git log -n 1 --pretty=format:"%H" origin/$BASE_BRANCH)
+          HEAD_HASH=$(git log -n 1 --pretty=format:"%H" origin/$HEAD_BRANCH)
+
+          # Check if the head branch is directly rebased on top of base branch
+          BASE_PARENT=$(git log --pretty=format:"%P" -n 1 $BASE_HASH)
+
+          if [[ "$BASE_PARENT" != "$HEAD_HASH" ]]; then
+            echo "The head branch is not rebased on top of the base branch."
             exit 1
+          else
+            echo "The head branch is rebased on top of the base branch."
           fi
-        shell: bash
 
       # Ensure no merge commits exist
       - name: Check for merge commits
