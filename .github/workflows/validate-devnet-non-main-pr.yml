@@ -23,17 +23,18 @@ jobs:
         with:
           fetch-depth: 0 # Fetch full history to inspect commits
 
-      # Ensure branch is rebased on top of latest devnet
-      - name: Check if branch is up-to-date with devnet
+      # Ensure branch is rebased on top of the latest base branch
+      - name: Check if branch is rebased on top of the base branch
         run: |
-          # Fetch the latest devnet branch
-          git fetch origin devnet
+          # Fetch the latest base branch
+          BASE_BRANCH=${GITHUB_EVENT_PULL_REQUEST_BASE_REF}
+          git fetch origin $BASE_BRANCH
 
-          # Compare the base of the branch to the devnet branch
-          BASE_COMMIT=$(git merge-base HEAD origin/devnet)
-          if [ "$BASE_COMMIT" != "$(git rev-parse origin/devnet)" ]; then
-            echo "The branch is not rebased on top of the latest devnet branch."
-            echo "Please rebase your branch on top of devnet."
+          # Compare the base of the head branch to the base branch
+          BASE_COMMIT=$(git merge-base HEAD origin/$BASE_BRANCH)
+          if [ "$BASE_COMMIT" != "$(git rev-parse origin/$BASE_BRANCH)" ]; then
+            echo "The branch is not rebased on top of the latest $BASE_BRANCH branch."
+            echo "Please rebase your branch on top of $BASE_BRANCH."
             exit 1
           fi
         shell: bash
@@ -41,8 +42,9 @@ jobs:
       # Ensure no merge commits exist
       - name: Check for merge commits
         run: |
-          # List all merge commits in the branch
-          MERGE_COMMITS=$(git log --merges --oneline origin/devnet..HEAD)
+          # Check for merge commits between the head branch and the base branch
+          BASE_BRANCH=${GITHUB_EVENT_PULL_REQUEST_BASE_REF}
+          MERGE_COMMITS=$(git log --merges --oneline origin/$BASE_BRANCH..HEAD)
           if [ -n "$MERGE_COMMITS" ]; then
             echo "Merge commits are not allowed in this branch."
             echo "Please rebase your branch and remove the following merge commits:"
