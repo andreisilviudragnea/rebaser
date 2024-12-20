@@ -4,11 +4,9 @@ on:
   pull_request:
     branches:
       - devnet
+  pull_request_target:
     types:
-      - opened       # Trigger when a PR is opened
-      - synchronize  # Trigger when commits are pushed to the PR
-      - reopened     # Trigger when a PR is reopened
-      - unlabeled    # Trigger when a label is removed from the PR
+      - unlabeled
 
 jobs:
   validate-devnet-non-main-pr:
