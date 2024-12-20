@@ -14,9 +14,7 @@ jobs:
   validate-devnet-non-main-pr:
     runs-on: ubuntu-latest
 
-    # First, check if the event is associated with a pull request
-    # Then skip the job if the base or head branch is 'main'
-    if: github.event.pull_request != null && github.event.pull_request.base.ref != 'main' && github.event.pull_request.head.ref != 'main'
+    if: github.event.pull_request != null && github.event.pull_request.head.ref != 'main'
 
     steps:
       - name: Checkout PR branch
