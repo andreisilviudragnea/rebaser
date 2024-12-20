@@ -35,7 +35,7 @@ jobs:
         with:
           script: |
             const labelName = "devnet"; // Replace with your desired label name
-            const prNumbers = JSON.parse(inputs.pr_numbers);
+            const prNumbers = JSON.parse(${{ steps.list-prs.outputs.pr_numbers }});
 
             if (prNumbers.length === 0) {
               console.log("No PRs to label.");
@@ -50,5 +50,3 @@ jobs:
                 });
               }
             }
-        inputs:
-          pr_numbers: ${{ steps.list-prs.outputs.pr_numbers }}
