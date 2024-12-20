@@ -17,47 +17,38 @@ jobs:
     if: github.event.pull_request != null && github.event.pull_request.base.ref != 'main' && github.event.pull_request.head.ref != 'main'
 
     steps:
-      # Checkout the branch
-      - name: Checkout Branch
+      - name: Checkout PR branch
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Fetch full history to inspect commits
+          fetch-depth: 0  # Fetch all history for all branches
 
-      - name: Fetch all branches
-        run: git fetch --all
-
-      - name: Check if head branch is rebased on top of base branch
+      - name: Get base and head branch names
+        id: vars
         run: |
-          BASE_BRANCH="${{ github.event.pull_request.base.ref }}"
-          HEAD_BRANCH="${{ github.event.pull_request.head.ref }}"
+          echo "BASE_BRANCH=${{ github.event.pull_request.base.ref }}" >> $GITHUB_ENV
+          echo "HEAD_BRANCH=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
 
-          echo "Base Branch: $BASE_BRANCH"
-          echo "Head Branch: $HEAD_BRANCH"
+      - name: Fetch base branch
+        run: |
+          git fetch origin $BASE_BRANCH
+          git checkout $BASE_BRANCH
 
-          # Get the latest commit hash of both base and head branch
-          BASE_HASH=$(git log -n 1 --pretty=format:"%H" origin/$BASE_BRANCH)
-          HEAD_HASH=$(git log -n 1 --pretty=format:"%H" origin/$HEAD_BRANCH)
-
-          # Check if the head branch is directly rebased on top of base branch
-          BASE_PARENT=$(git log --pretty=format:"%P" -n 1 $BASE_HASH)
-
-          if [[ "$BASE_PARENT" != "$HEAD_HASH" ]]; then
-            echo "The head branch is not rebased on top of the base branch."
-            exit 1
-          else
-            echo "The head branch is rebased on top of the base branch."
-          fi
-
-      # Ensure no merge commits exist
       - name: Check for merge commits
         run: |
-          # Check for merge commits between the head branch and the base branch
-          BASE_BRANCH=${GITHUB_EVENT_PULL_REQUEST_BASE_REF}
-          MERGE_COMMITS=$(git log --merges --oneline origin/$BASE_BRANCH..HEAD)
-          if [ -n "$MERGE_COMMITS" ]; then
-            echo "Merge commits are not allowed in this branch."
-            echo "Please rebase your branch and remove the following merge commits:"
-            echo "$MERGE_COMMITS"
+          git checkout $HEAD_BRANCH
+          if git log --merges origin/$BASE_BRANCH..HEAD | grep -q .; then
+            echo "Merge commits found in the PR branch."
             exit 1
+          else
+            echo "No merge commits found."
           fi
-        shell: bash
+
+      - name: Check if PR branch is rebased
+        run: |
+          git checkout $HEAD_BRANCH
+          if ! git merge-base --is-ancestor origin/$BASE_BRANCH HEAD; then
+            echo "PR branch is not rebased on top of $BASE_BRANCH."
+            exit 1
+          else
+            echo "PR branch is rebased on top of $BASE_BRANCH."
+          fi
