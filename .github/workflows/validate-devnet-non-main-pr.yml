@@ -4,11 +4,7 @@ on:
   pull_request:
     branches:
       - devnet
-  workflow_run:
-    workflows:
-      - Update Base Branch PRs
-    types:
-      - completed
+  workflow_dispatch: # Add this to enable manual or programmatic triggers
 
 jobs:
   validate-devnet-non-main-pr:
