@@ -1,4 +1,4 @@
-name: Label PRs on devnet push
+name: Add and Remove Label on devnet Push
 
 on:
   push:
@@ -6,16 +6,16 @@ on:
       - devnet
 
 jobs:
-  label-prs:
+  manage-labels:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Add label to all PRs with devnet base
+      - name: Add and Remove Label on PRs with devnet Base
         uses: actions/github-script@v6
         with:
           script: |
             const baseBranch = "devnet"; // Base branch to filter
-            const labelName = "devnet"; // Label to apply
+            const labelName = "devnet"; // Label to apply and remove
 
             // Fetch open pull requests with the base branch as 'devnet'
             const { data: pullRequests } = await github.rest.pulls.list({
@@ -29,13 +29,26 @@ jobs:
               console.log("No open pull requests with base branch 'devnet'.");
             } else {
               console.log(`Found ${pullRequests.length} pull request(s) with base branch 'devnet'.`);
+
               for (const pr of pullRequests) {
-                console.log(`Adding label to PR #${pr.number}`);
+                console.log(`Processing PR #${pr.number}`);
+
+                // Add the label
+                console.log(`Adding label "${labelName}" to PR #${pr.number}`);
                 await github.rest.issues.addLabels({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: pr.number,
                   labels: [labelName],
+                });
+
+                // Remove the label
+                console.log(`Removing label "${labelName}" from PR #${pr.number}`);
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.number,
+                  name: labelName,
                 });
               }
             }
