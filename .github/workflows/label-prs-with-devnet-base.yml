@@ -27,15 +27,15 @@ jobs:
               console.log("No open pull requests with base branch 'devnet'.");
             }
 
-            return pullRequests.map(pr => pr.number);
+            core.setOutput("pr_numbers", JSON.stringify(pullRequests.map(pr => pr.number)));
 
       - name: Add label to PRs
-        if: steps.list-prs.outputs.result != '[]' # Only proceed if there are PRs
+        if: steps.list-prs.outputs.pr_numbers != '[]' # Only proceed if there are PRs
         uses: actions/github-script@v6
         with:
           script: |
             const labelName = "devnet"; // Replace with your desired label name
-            const prNumbers = JSON.parse(process.env.PR_NUMBERS || "[]");
+            const prNumbers = JSON.parse(inputs.pr_numbers);
 
             if (prNumbers.length === 0) {
               console.log("No PRs to label.");
@@ -49,5 +49,6 @@ jobs:
                   labels: [labelName],
                 });
               }
-            env:
-          PR_NUMBERS: ${{ steps.list-prs.outputs.result }}
+            }
+        inputs:
+          pr_numbers: ${{ steps.list-prs.outputs.pr_numbers }}
