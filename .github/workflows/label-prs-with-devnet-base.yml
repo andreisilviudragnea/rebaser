@@ -1,0 +1,53 @@
+name: Label PRs on devnet push
+
+on:
+  push:
+    branches:
+      - devnet
+
+jobs:
+  label-prs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get open PRs with devnet as base
+        id: list-prs
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const baseBranch = "devnet"; // Base branch to filter
+            const { data: pullRequests } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              base: baseBranch,
+            });
+
+            if (pullRequests.length === 0) {
+              console.log("No open pull requests with base branch 'devnet'.");
+            }
+
+            return pullRequests.map(pr => pr.number);
+
+      - name: Add label to PRs
+        if: steps.list-prs.outputs.result != '[]' # Only proceed if there are PRs
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const labelName = "devnet"; // Replace with your desired label name
+            const prNumbers = JSON.parse(process.env.PR_NUMBERS || "[]");
+
+            if (prNumbers.length === 0) {
+              console.log("No PRs to label.");
+            } else {
+              for (const prNumber of prNumbers) {
+                console.log(`Adding label to PR #${prNumber}`);
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                  labels: [labelName],
+                });
+              }
+            env:
+          PR_NUMBERS: ${{ steps.list-prs.outputs.result }}
