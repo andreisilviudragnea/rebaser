@@ -8,7 +8,6 @@ on:
       - opened
       - synchronize
       - reopened
-      - labeled
       - unlabeled
 
 jobs:

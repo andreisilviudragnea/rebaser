@@ -1,4 +1,4 @@
-name: Add and Remove Label on devnet Push
+name: Label PRs with devnet base
 
 on:
   push:
@@ -6,17 +6,17 @@ on:
       - devnet
 
 jobs:
-  manage-labels:
+  label-prs-with-devnet-base:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Add and Remove Label on PRs with devnet Base
+      - name: Label PRs with devnet base
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.PAT_TOKEN }} # Use your PAT here
+          github-token: ${{ secrets.PAT_TOKEN }}
           script: |
             const baseBranch = "devnet"; // Base branch to filter
-            const labelName = "devnet-again"; // Label to apply and remove
+            const labelName = "devnet-push"; // Label to apply and remove
 
             // Fetch open pull requests with the base branch 'devnet'
             const { data: pullRequests } = await github.rest.pulls.list({
