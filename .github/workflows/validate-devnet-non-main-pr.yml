@@ -12,8 +12,8 @@ jobs:
   validate-devnet-non-main-pr:
     runs-on: ubuntu-latest
 
-    # Add a condition to skip the job if the head branch is main
-    if: github.event.pull_request.base.ref != 'main'
+    # Skip the job if the base or head branch is 'main'
+    if: github.event.pull_request.base.ref != 'main' && github.event.pull_request.head.ref != 'main'
 
     steps:
       # Checkout the branch
