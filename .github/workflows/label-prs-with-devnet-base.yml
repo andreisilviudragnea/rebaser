@@ -13,21 +13,13 @@ jobs:
       - name: Add and Remove Label on PRs with devnet Base
         uses: actions/github-script@v6
         with:
+          github-token: ${{ secrets.PAT_TOKEN }} # Use your PAT here
           script: |
             const baseBranch = "devnet"; // Base branch to filter
             const labelName = "devnet-again"; // Label to apply and remove
 
-            const { Octokit } = require("@octokit/rest");
-            const token = process.env.PAT_TOKEN;
-
-            if (!token) {
-              throw new Error("Personal Access Token (PAT_TOKEN) is missing.");
-            }
-
-            const octokit = new Octokit({ auth: token });
-
-            // Fetch open pull requests with the base branch as 'devnet'
-            const { data: pullRequests } = await octokit.pulls.list({
+            // Fetch open pull requests with the base branch 'devnet'
+            const { data: pullRequests } = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: "open",
@@ -44,7 +36,7 @@ jobs:
 
                 // Add the label
                 console.log(`Adding label "${labelName}" to PR #${pr.number}`);
-                await octokit.issues.addLabels({
+                await github.rest.issues.addLabels({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: pr.number,
@@ -53,7 +45,7 @@ jobs:
 
                 // Remove the label
                 console.log(`Removing label "${labelName}" from PR #${pr.number}`);
-                await octokit.issues.removeLabel({
+                await github.rest.issues.removeLabel({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: pr.number,
@@ -61,5 +53,3 @@ jobs:
                 });
               }
             }
-        env:
-          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
