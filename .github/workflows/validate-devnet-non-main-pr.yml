@@ -4,7 +4,11 @@ on:
   pull_request:
     branches:
       - devnet
-  workflow_dispatch: # Add this to enable manual or programmatic triggers
+    types:
+      - opened       # Trigger when a PR is opened
+      - synchronize  # Trigger when commits are pushed to the PR
+      - reopened     # Trigger when a PR is reopened
+      - unlabeled    # Trigger when a label is removed from the PR
 
 jobs:
   validate-devnet-non-main-pr:
