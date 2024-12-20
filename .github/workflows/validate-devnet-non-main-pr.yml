@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     # Add a condition to skip the job if the head branch is main
-    if: github.event.pull_request.head.ref != 'main'
+    if: github.event.pull_request.base.ref != 'main'
 
     steps:
       # Checkout the branch
