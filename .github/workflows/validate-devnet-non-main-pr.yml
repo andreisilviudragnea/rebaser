@@ -3,7 +3,6 @@ name: Validate devnet non-main PR
 on:
   pull_request:
     branches:
-      - main
       - devnet
   push:
     branches:
@@ -13,8 +12,9 @@ jobs:
   validate-devnet-non-main-pr:
     runs-on: ubuntu-latest
 
-    # Skip the job if the base or head branch is 'main', or if the push isn't part of a PR
-    if: github.event.pull_request.base.ref != 'main' && github.event.pull_request.head.ref != 'main' && github.event.pull_request != null
+    # First, check if the event is associated with a pull request
+    # Then skip the job if the base or head branch is 'main'
+    if: github.event.pull_request != null && github.event.pull_request.base.ref != 'main' && github.event.pull_request.head.ref != 'main'
 
     steps:
       # Checkout the branch
