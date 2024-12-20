@@ -15,15 +15,15 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const { data: pullRequests } = await github.pulls.list({
+            const pullRequests = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
               base: 'devnet',
               state: 'open',
             });
-
-            for (const pr of pullRequests) {
-              await github.actions.createWorkflowDispatch({
+    
+            for (const pr of pullRequests.data) {
+              await github.rest.actions.createWorkflowDispatch({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 workflow_id: 'validate-devnet-non-main-pr.yml',
