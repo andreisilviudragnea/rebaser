@@ -7,13 +7,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-git2 = "0.19.0"
-octocrab = "0.42.1"
+git2 = "0.20.2"
+octocrab = "0.45.0"
 config = "0.15.17"
 serde_json = "1.0.145"
 tokio = { version = "1.47.1", features = ["full"] }
 regex = "1.11.3"
-toml = "0.8.23"
+toml = "0.9.7"
 url = "2.5.7"
 log = "0.4.28"
 simple_logger = "5.0.0"
