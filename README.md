@@ -1,3 +1,3 @@
 # rebaser
 
-Automatic recursive git rebaser 2
+Automatic recursive git rebaser
