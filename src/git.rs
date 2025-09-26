@@ -9,7 +9,7 @@ use octocrab::models::pulls::PullRequest;
 pub(crate) trait RepositoryOps {
     fn rebase(&self, pr: &PullRequest) -> bool;
 
-    fn get_origin_remote(&self) -> Remote;
+    fn get_origin_remote(&self) -> Remote<'_>;
 
     fn fast_forward(&self, refname: &str);
 
@@ -17,7 +17,7 @@ pub(crate) trait RepositoryOps {
 
     fn check_linear_history(&self, branch: &str);
 
-    fn get_remote_for_branch(&self, branch: &str) -> Remote;
+    fn get_remote_for_branch(&self, branch: &str) -> Remote<'_>;
 }
 
 pub(crate) struct GitRepository {
@@ -133,7 +133,7 @@ impl RepositoryOps for GitRepository {
         true
     }
 
-    fn get_origin_remote(&self) -> Remote {
+    fn get_origin_remote(&self) -> Remote<'_> {
         self.repository.find_remote("origin").unwrap()
     }
 
@@ -226,7 +226,7 @@ impl RepositoryOps for GitRepository {
         }
     }
 
-    fn get_remote_for_branch(&self, branch: &str) -> Remote {
+    fn get_remote_for_branch(&self, branch: &str) -> Remote<'_> {
         // Look up the local branch by name
         let branch = self
             .repository
