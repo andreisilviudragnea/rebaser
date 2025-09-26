@@ -17,7 +17,7 @@ jobs:
           override: true
           components: rustfmt, clippy
       - name: Cache Dependencies
-        uses: Swatinem/rust-cache@v2.7.5
+        uses: Swatinem/rust-cache@v2.8.1
       - name: cargo fmt --all --check
         uses: actions-rs/cargo@v1
         with:
