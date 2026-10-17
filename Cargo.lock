@@ -1012,9 +1012,9 @@ dependencies = [
 
 [[package]]
 name = "octocrab"
-version = "0.54.4"
+version = "0.54.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4a95a2ef78a1956cc22593932b9dcf8fbd8c62328d75d04026d8f0dc71bccae"
+checksum = "1316aeebcf5959e7442809c5446d97df5b37d87742c9e363b3e9920e0b3fb994"
 dependencies = [
  "arc-swap",
  "base64 0.22.1",
@@ -1234,7 +1234,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.1",
 ]
 
 [[package]]
@@ -1466,7 +1466,7 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.1",
 ]
 
 [[package]]
@@ -2251,7 +2251,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.61.1",
 ]
 
 [[package]]
